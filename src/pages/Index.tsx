@@ -10,6 +10,10 @@ import DevelopmentRoadmap from '@/components/DevelopmentRoadmap';
 import IntentManager from '@/components/IntentManager';
 import DebugDashboard from '@/components/DebugDashboard';
 import ConversationFixes from '@/components/ConversationFixes';
+import IntentTrainingData from '@/components/IntentTrainingData';
+import ConversationFlowExamples from '@/components/ConversationFlowExamples';
+import UIUXDesignGuide from '@/components/UIUXDesignGuide';
+import AnalyticsAndDeployment from '@/components/AnalyticsAndDeployment';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const Index = () => {
@@ -18,26 +22,30 @@ const Index = () => {
       <div className="container mx-auto p-4">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-slate-800 mb-2">
-            Hospitality AI Chatbot - Enhanced POC
+            Professional Hospitality AI Chatbot - Complete System
           </h1>
           <p className="text-lg text-slate-600">
-            Complete Proof of Concept with Advanced Intent Detection & Debugging
+            Production-Ready Digital Concierge with Advanced NLU & Premium UX Design
           </p>
         </div>
         
         <Tabs defaultValue="summary" className="w-full">
-          <TabsList className="grid w-full grid-cols-5 lg:grid-cols-10 mb-6">
-            <TabsTrigger value="summary">Executive Summary</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-7 lg:grid-cols-14 mb-6 text-xs">
+            <TabsTrigger value="summary">Summary</TabsTrigger>
             <TabsTrigger value="architecture">Architecture</TabsTrigger>
             <TabsTrigger value="tech">Tech Stack</TabsTrigger>
-            <TabsTrigger value="intents">Intent System</TabsTrigger>
-            <TabsTrigger value="flows">Conversation Flows</TabsTrigger>
-            <TabsTrigger value="fixes">Flow Improvements</TabsTrigger>
-            <TabsTrigger value="debug">Debug Dashboard</TabsTrigger>
-            <TabsTrigger value="ui">UI Design</TabsTrigger>
+            <TabsTrigger value="training">Training</TabsTrigger>
+            <TabsTrigger value="intents">Intents</TabsTrigger>
+            <TabsTrigger value="flows">Flows</TabsTrigger>
+            <TabsTrigger value="examples">Examples</TabsTrigger>
+            <TabsTrigger value="fixes">Fixes</TabsTrigger>
+            <TabsTrigger value="debug">Debug</TabsTrigger>
+            <TabsTrigger value="design">Design</TabsTrigger>
+            <TabsTrigger value="ui">UI</TabsTrigger>
             <TabsTrigger value="backend">Backend</TabsTrigger>
+            <TabsTrigger value="analytics">Analytics</TabsTrigger>
             <TabsTrigger value="roadmap">Roadmap</TabsTrigger>
-            <TabsTrigger value="demo">Live Demo</TabsTrigger>
+            <TabsTrigger value="demo">Demo</TabsTrigger>
           </TabsList>
           
           <TabsContent value="summary">
@@ -52,12 +60,20 @@ const Index = () => {
             <TechStack />
           </TabsContent>
           
+          <TabsContent value="training">
+            <IntentTrainingData />
+          </TabsContent>
+          
           <TabsContent value="intents">
             <IntentManager />
           </TabsContent>
           
           <TabsContent value="flows">
             <ConversationFlows />
+          </TabsContent>
+          
+          <TabsContent value="examples">
+            <ConversationFlowExamples />
           </TabsContent>
           
           <TabsContent value="fixes">
@@ -68,12 +84,20 @@ const Index = () => {
             <DebugDashboard />
           </TabsContent>
           
+          <TabsContent value="design">
+            <UIUXDesignGuide />
+          </TabsContent>
+          
           <TabsContent value="ui">
             <UIMockups />
           </TabsContent>
           
           <TabsContent value="backend">
             <SupabaseIntegration />
+          </TabsContent>
+          
+          <TabsContent value="analytics">
+            <AnalyticsAndDeployment />
           </TabsContent>
           
           <TabsContent value="roadmap">
