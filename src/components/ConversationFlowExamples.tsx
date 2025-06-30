@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -12,6 +11,7 @@ interface DialogueTurn {
   confidence?: number;
   slots?: Record<string, any>;
   context?: Record<string, any>;
+  outcome?: string;
 }
 
 interface ConversationFlow {
@@ -337,7 +337,7 @@ const ConversationFlowExamples = () => {
                                 {turn.message}
                               </div>
                               
-                              {turn.speaker === 'bot' && (turn.intent || turn.slots || turn.context) && (
+                              {turn.speaker === 'bot' && (turn.intent || turn.slots || turn.context || turn.outcome) && (
                                 <div className="mt-2 pt-2 border-t border-gray-200 space-y-1">
                                   {turn.intent && (
                                     <Badge variant="outline" className="text-xs mr-1">
@@ -357,6 +357,11 @@ const ConversationFlowExamples = () => {
                                       {turn.context && (
                                         <div>Context: {JSON.stringify(turn.context, null, 2)}</div>
                                       )}
+                                    </div>
+                                  )}
+                                  {turn.outcome && (
+                                    <div className="text-xs text-green-700 font-semibold mt-1">
+                                      Outcome: {turn.outcome}
                                     </div>
                                   )}
                                 </div>
