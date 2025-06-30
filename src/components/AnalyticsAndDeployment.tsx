@@ -324,22 +324,22 @@ const AnalyticsAndDeployment = () => {
             <div className="text-center p-6 bg-gradient-to-br from-green-50 to-green-100 rounded-lg">
               <div className="text-3xl font-bold text-green-600">94.2%</div>
               <div className="text-sm text-green-700">Intent Accuracy</div>
-              <div className="text-xs text-green-600 mt-1">Target: >90%</div>
+              <div className="text-xs text-green-600 mt-1">Target: {'>'} 90%</div>
             </div>
             <div className="text-center p-6 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg">
               <div className="text-3xl font-bold text-blue-600">1.2s</div>
               <div className="text-sm text-blue-700">Response Time</div>
-              <div className="text-xs text-blue-600 mt-1">Target: <2s</div>
+              <div className="text-xs text-blue-600 mt-1">Target: {'<'} 2s</div>
             </div>
             <div className="text-center p-6 bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg">
               <div className="text-3xl font-bold text-purple-600">89%</div>
               <div className="text-sm text-purple-700">Completion Rate</div>
-              <div className="text-xs text-purple-600 mt-1">Target: >85%</div>
+              <div className="text-xs text-purple-600 mt-1">Target: {'>'} 85%</div>
             </div>
             <div className="text-center p-6 bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg">
               <div className="text-3xl font-bold text-orange-600">4.6/5</div>
               <div className="text-sm text-orange-700">Satisfaction</div>
-              <div className="text-xs text-orange-600 mt-1">Target: >4.0</div>
+              <div className="text-xs text-orange-600 mt-1">Target: {'>'} 4.0</div>
             </div>
           </div>
         </CardContent>
