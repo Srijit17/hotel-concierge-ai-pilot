@@ -471,7 +471,7 @@ const HotelChatbot = () => {
         sender: 'bot',
         timestamp: new Date(),
         type: botResponse.type,
-        data: botResponse.data,
+        data: 'data' in botResponse ? botResponse.data : undefined,
         intent,
         confidence,
       };
