@@ -192,7 +192,7 @@ const UIMockups = () => {
                 <span className="font-bold text-green-600">⚡</span>
               </div>
               <p className="font-medium">Fast Loading</p>
-              <p className="text-gray-600">< 2s initial load time</p>
+              <p className="text-gray-600">Less than 2s initial load time</p>
             </div>
             <div className="text-center">
               <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-2">
