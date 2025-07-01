@@ -188,6 +188,42 @@ export type Database = {
         }
         Relationships: []
       }
+      rooms: {
+        Row: {
+          available: boolean | null
+          created_at: string | null
+          features: string[] | null
+          id: string
+          image_url: string | null
+          max_guests: number | null
+          name: string
+          price_per_night: number
+          type: string
+        }
+        Insert: {
+          available?: boolean | null
+          created_at?: string | null
+          features?: string[] | null
+          id?: string
+          image_url?: string | null
+          max_guests?: number | null
+          name: string
+          price_per_night: number
+          type: string
+        }
+        Update: {
+          available?: boolean | null
+          created_at?: string | null
+          features?: string[] | null
+          id?: string
+          image_url?: string | null
+          max_guests?: number | null
+          name?: string
+          price_per_night?: number
+          type?: string
+        }
+        Relationships: []
+      }
       sessions: {
         Row: {
           channel: string | null

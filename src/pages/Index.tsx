@@ -1,5 +1,7 @@
+
 import React from 'react';
 import HotelChatbot from '@/components/HotelChatbot';
+import HotelChatbotCore from '@/components/HotelChatbotCore';
 import ArchitectureDashboard from '@/components/ArchitectureDashboard';
 import ExecutiveSummary from '@/components/ExecutiveSummary';
 import TechStack from '@/components/TechStack';
@@ -29,8 +31,9 @@ const Index = () => {
           </p>
         </div>
         
-        <Tabs defaultValue="summary" className="w-full">
-          <TabsList className="grid w-full grid-cols-7 lg:grid-cols-14 mb-6 text-xs">
+        <Tabs defaultValue="core-demo" className="w-full">
+          <TabsList className="grid w-full grid-cols-8 lg:grid-cols-15 mb-6 text-xs">
+            <TabsTrigger value="core-demo">Core Demo</TabsTrigger>
             <TabsTrigger value="summary">Summary</TabsTrigger>
             <TabsTrigger value="architecture">Architecture</TabsTrigger>
             <TabsTrigger value="tech">Tech Stack</TabsTrigger>
@@ -47,6 +50,12 @@ const Index = () => {
             <TabsTrigger value="roadmap">Roadmap</TabsTrigger>
             <TabsTrigger value="demo">Demo</TabsTrigger>
           </TabsList>
+          
+          <TabsContent value="core-demo">
+            <div className="flex justify-center">
+              <HotelChatbotCore />
+            </div>
+          </TabsContent>
           
           <TabsContent value="summary">
             <ExecutiveSummary />
