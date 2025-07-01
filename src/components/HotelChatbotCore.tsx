@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -297,9 +298,18 @@ const HotelChatbotCore = () => {
     const totalAmount = currentOrder.items.reduce((sum, item) => sum + item.price, 0);
     
     try {
+      // Convert MenuItem[] to Json by creating a plain object array
+      const itemsAsJson = currentOrder.items.map(item => ({
+        id: item.id,
+        name: item.name,
+        price: item.price,
+        category: item.category,
+        description: item.description
+      }));
+
       await supabase.from('orders').insert({
         session_id: sessionId,
-        items: currentOrder.items,
+        items: itemsAsJson,
         room_number: roomNumber,
         total_amount: totalAmount,
         status: 'confirmed'
@@ -491,11 +501,12 @@ Thank you for your order!`);
 
   const renderMessage = (message: Message) => {
     if (message.type === 'room-cards' && message.data) {
+      const rooms = message.data as Room[];
       return (
         <div className="space-y-3">
           <p className="text-sm text-gray-600 mb-3">{message.content}</p>
           <div className="grid gap-3">
-            {message.data.map((room: Room) => (
+            {rooms.map((room: Room) => (
               <Card key={room.id} className="border border-blue-200 hover:border-blue-300 transition-colors cursor-pointer"
                     onClick={() => handleBookingFlow(room.name)}>
                 <CardContent className="p-4">
@@ -529,11 +540,12 @@ Thank you for your order!`);
     }
 
     if (message.type === 'menu-items' && message.data) {
+      const items = message.data as MenuItem[];
       return (
         <div className="space-y-3">
           <p className="text-sm text-gray-600 mb-3">{message.content}</p>
           <div className="grid gap-2">
-            {message.data.map((item: MenuItem) => (
+            {items.map((item: MenuItem) => (
               <Card key={item.id} className="border border-orange-200 hover:border-orange-300 transition-colors cursor-pointer"
                     onClick={() => handleMenuItemSelection(item)}>
                 <CardContent className="p-3">
@@ -559,11 +571,12 @@ Thank you for your order!`);
     }
 
     if (message.type === 'amenity-info' && message.data) {
+      const amenities = message.data as Record<string, string>;
       return (
         <div className="space-y-3">
           <p className="text-sm text-gray-600 mb-3">{message.content}</p>
           <div className="grid gap-2">
-            {Object.entries(message.data).map(([amenity, description], index) => (
+            {Object.entries(amenities).map(([amenity, description], index) => (
               <Card key={index} className="border border-purple-200">
                 <CardContent className="p-3">
                   <h4 className="font-medium text-purple-900 mb-1">{amenity}</h4>
@@ -577,11 +590,12 @@ Thank you for your order!`);
     }
 
     if (message.type === 'contact-info' && message.data) {
+      const contacts = message.data as Record<string, string>;
       return (
         <div className="space-y-3">
           <p className="text-sm text-gray-600 mb-3">{message.content}</p>
           <div className="grid gap-2">
-            {Object.entries(message.data).map(([department, contact], index) => (
+            {Object.entries(contacts).map(([department, contact], index) => (
               <Card key={index} className="border border-green-200">
                 <CardContent className="p-3">
                   <div className="flex items-center gap-2">
