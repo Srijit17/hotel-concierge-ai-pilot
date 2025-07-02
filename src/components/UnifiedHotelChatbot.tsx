@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
@@ -220,6 +221,42 @@ const UnifiedHotelChatbot = () => {
             'post-booking-services'
           );
         }, 2000);
+        break;
+    }
+  };
+
+  const handleSpaBookingFlow = (step: string, data?: any) => {
+    switch (step) {
+      case 'show_spa_amenities':
+        const spaServices = amenityServices.filter(service => service.category === 'Spa');
+        addBotMessage("Here are our luxurious spa treatments:", 'spa-amenities', {
+          amenities: spaServices
+        });
+        break;
+        
+      case 'book_spa_treatment':
+        addBotMessage("I'd be delighted to help you book a spa treatment! Please select your preferred service:", 'spa-booking', {
+          amenities: amenityServices.filter(service => service.category === 'Spa')
+        });
+        break;
+        
+      case 'spa_treatment_selected':
+        addBotMessage(`Perfect choice! ${data.name} is one of our most popular treatments. Please select your preferred time slot:`, 'spa-time-slots', {
+          service: data,
+          timeSlots: [
+            { time: '10:00 AM', available: true },
+            { time: '12:00 PM', available: true },
+            { time: '2:00 PM', available: false },
+            { time: '4:00 PM', available: true },
+            { time: '6:00 PM', available: true }
+          ]
+        });
+        break;
+        
+      case 'spa_time_selected':
+        addBotMessage(`Excellent! Your ${data.service.name} is booked for ${data.timeSlot}. Would you like to proceed with payment?`, 'spa-payment', {
+          booking: data
+        });
         break;
     }
   };
@@ -461,15 +498,23 @@ const UnifiedHotelChatbot = () => {
     setTimeout(() => {
       addBotMessage(
         "Since you've ordered room service, would you like to book a relaxing spa treatment to complete your in-room experience?",
-        'spa-suggestion'
+        'spa-suggestion',
+        {
+          suggestedActions: [
+            { action: 'show_spa_amenities', label: 'View Spa Services' },
+            { action: 'book_spa_treatment', label: 'Book Spa Treatment' }
+          ]
+        }
       );
     }, 2000);
   };
 
   const handleAmenityBooking = (amenity: any) => {
-    addBotMessage(`Wonderful! I'd be happy to help you book ${amenity.name}.`, 'amenity-booking', { amenity });
     if (amenity.category === 'Spa') {
+      handleSpaBookingFlow('spa_treatment_selected', amenity);
       setUserContext(prev => ({ ...prev, hasSpaBooking: true }));
+    } else {
+      addBotMessage(`Wonderful! I'd be happy to help you book ${amenity.name}.`, 'amenity-booking', { amenity });
     }
   };
 
