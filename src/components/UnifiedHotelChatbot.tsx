@@ -181,19 +181,49 @@ const UnifiedHotelChatbot = () => {
     switch (step) {
       case 'start_booking':
         setBookingState({ step: 'room_selection' });
-        addBotMessage("Perfect! Let me show you our available rooms:", 'room-cards', {
-          rooms: [
-            { id: '1', name: 'Deluxe Room', type: 'deluxe', price_per_night: 200, features: ['City View', 'Free WiFi', 'Mini Bar'], max_guests: 2, image_url: '/placeholder.svg', available: true },
-            { id: '2', name: 'Ocean View Suite', type: 'suite', price_per_night: 350, features: ['Ocean View', 'Balcony', 'Jacuzzi'], max_guests: 4, image_url: '/placeholder.svg', available: true },
-            { id: '3', name: 'Presidential Suite', type: 'presidential', price_per_night: 600, features: ['Panoramic View', 'Butler Service', 'Private Terrace'], max_guests: 6, image_url: '/placeholder.svg', available: true }
-          ]
+        // Fetch actual room data from Supabase or use mock data
+        const availableRooms = [
+          { 
+            id: '1', 
+            name: 'Deluxe Mountain View', 
+            type: 'deluxe', 
+            price_per_night: 250, 
+            features: ['Mountain View', 'Free WiFi', 'Mini Bar', 'Balcony'], 
+            max_guests: 2, 
+            image_url: '/placeholder.svg', 
+            available: true 
+          },
+          { 
+            id: '2', 
+            name: 'Heritage Suite', 
+            type: 'suite', 
+            price_per_night: 400, 
+            features: ['Heritage Decor', 'Separate Living Area', 'Jacuzzi', 'Butler Service'], 
+            max_guests: 4, 
+            image_url: '/placeholder.svg', 
+            available: true 
+          },
+          { 
+            id: '3', 
+            name: 'Royal Presidential Suite', 
+            type: 'presidential', 
+            price_per_night: 750, 
+            features: ['Panoramic City View', 'Private Terrace', 'Butler Service', 'Dining Room'], 
+            max_guests: 6, 
+            image_url: '/placeholder.svg', 
+            available: true 
+          }
+        ];
+        
+        addBotMessage("Perfect! Let me show you our available luxury accommodations:", 'room-cards', {
+          rooms: availableRooms
         });
         break;
         
       case 'room_selected':
         setBookingState({ step: 'guest_details', selectedRoom: data });
         addBotMessage(
-          `Excellent choice! The ${data.name} is perfect for your stay. Now I need some details to complete your booking:`,
+          `Excellent choice! The ${data.name} is perfect for your stay. Now please provide your booking details:`,
           'booking-form',
           { room: data }
         );
@@ -201,6 +231,9 @@ const UnifiedHotelChatbot = () => {
         
       case 'booking_confirmed':
         setBookingState({ step: 'completed', ...bookingState, guestDetails: data });
+        const nights = 2; // Calculate actual nights based on dates
+        const total = bookingState.selectedRoom?.price_per_night * nights;
+        
         addBotMessage(
           `🎉 Congratulations! Your booking is confirmed. Here's your confirmation:`,
           'booking-confirmation',
@@ -209,15 +242,15 @@ const UnifiedHotelChatbot = () => {
               bookingNumber: `GRD${Date.now().toString().slice(-6)}`,
               room: bookingState.selectedRoom,
               guest: data,
-              total: bookingState.selectedRoom?.price_per_night * 2 // Assuming 2 nights
+              total: total
             }
           }
         );
         
-        // Offer food and amenities after booking
+        // Offer additional services after booking
         setTimeout(() => {
           addBotMessage(
-            "Now that your room is booked, would you like to explore our dining options and amenities?",
+            "Now that your room is booked, would you like to explore our dining options and spa services?",
             'post-booking-services'
           );
         }, 2000);
