@@ -3,25 +3,17 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { 
-  Calendar, Users, MapPin, Star, Send, Phone, Clock, Utensils, User, CheckCircle, 
-  CreditCard, Car, Dumbbell, Coffee, Wifi, Bot, AlertCircle, MessageSquare, Brain 
-} from 'lucide-react';
+import { Bot, CheckCircle, Brain, Send } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-
-// Enhanced interfaces with complete typing
-interface Message {
-  id: string;
-  sender: 'user' | 'bot';
-  content: string;
-  timestamp: Date;
-  type?: 'text' | 'room-cards' | 'booking-summary' | 'menu-items' | 'amenity-info' | 'contact-info' | 'guest-profile' | 'smart-suggestions' | 'greeting-buttons' | 'department-contacts' | 'amenity-booking' | 'payment-options' | 'activity-prompts' | 'ai-response' | 'booking-modification' | 'payment-summary' | 'order-modification';
-  data?: any;
-  intent?: string;
-  confidence?: number;
-  entities?: any;
-}
+import { MessageRenderer, type Message } from './chatbot/MessageRenderer';
+import { 
+  detectIntent, 
+  searchFAQ, 
+  routeToModule, 
+  type SessionContext 
+} from '../lib/chatbot-ai';
+import { menuItems, amenityServices } from '../lib/chatbot-data';
 
 interface Room {
   id: string;
@@ -78,208 +70,6 @@ interface AmenityService {
   availability: string;
 }
 
-interface SessionContext {
-  guestName?: string;
-  roomType?: string;
-  checkIn?: string;
-  checkOut?: string;
-  roomNumber?: string;
-  fallbackCount: number;
-  previousIntents: string[];
-  visitCount: number;
-  currentBooking?: any;
-}
-
-// Enhanced Intent Training Data with Spell Correction
-const intentTrainingData = {
-  'GreetGuest': {
-    patterns: ['hello', 'hi', 'hey', 'good morning', 'good evening', 'good afternoon', 'greetings', 'good day', 'helo', 'hii', 'gud morning'],
-    confidence: 0.95,
-    weight: 1,
-    module: 'general'
-  },
-  'CheckRoomAvailability': {
-    patterns: ['room', 'available', 'vacancy', 'free', 'tonight', 'tomorrow', 'weekend', 'suite', 'king', 'queen', 'double', 'single', 'view', 'balcony', 'ocean', 'check availability', 'any rooms', 'book', 'reserve', 'availabel', 'rom', 'sute'],
-    confidence: 0.92,
-    weight: 2,
-    module: 'booking'
-  },
-  'BookRoom': {
-    patterns: ['book', 'reserve', 'reservation', 'confirm booking', 'take it', 'yes book', 'proceed', 'confirm', 'make reservation', 'i want', 'ill take', 'bok', 'resrve', 'reservaton'],
-    confidence: 0.94,
-    weight: 3,
-    module: 'booking'
-  },
-  'ViewBooking': {
-    patterns: ['my booking', 'booking details', 'reservation details', 'booking info', 'check booking', 'view booking', 'booking status', 'my reservation', 'boking', 'bokking'],
-    confidence: 0.93,
-    weight: 3,
-    module: 'booking'
-  },
-  'ModifyBooking': {
-    patterns: ['change booking', 'modify reservation', 'update booking', 'edit reservation', 'change dates', 'modify dates', 'chaneg', 'modfy'],
-    confidence: 0.91,
-    weight: 3,
-    module: 'booking'
-  },
-  'RequestRoomService': {
-    patterns: ['room service', 'food', 'order', 'breakfast', 'lunch', 'dinner', 'menu', 'hungry', 'eat', 'drink', 'coffee', 'tea', 'sandwich', 'meal', 'deliver', 'fodr', 'manu', 'hungri', 'brekfast'],
-    confidence: 0.90,
-    weight: 2,
-    module: 'food'
-  },
-  'ModifyFoodOrder': {
-    patterns: ['change order', 'modify order', 'cancel order', 'add to order', 'remove from order', 'edit order', 'update order', 'chaneg order', 'modfy order'],
-    confidence: 0.88,
-    weight: 3,
-    module: 'food'
-  },
-  'AskAboutAmenities': {
-    patterns: ['gym', 'pool', 'spa', 'amenities', 'facilities', 'wifi', 'fitness', 'swimming', 'restaurant', 'bar', 'parking', 'concierge', 'business center', 'laundry', 'dry cleaning', 'amnities', 'facilitis', 'swiming'],
-    confidence: 0.88,
-    weight: 2,
-    module: 'amenity'
-  },
-  'AddAmenity': {
-    patterns: ['add amenity', 'book spa', 'book massage', 'reserve gym', 'add service', 'book service', 'ad amenity', 'bok spa', 'masage'],
-    confidence: 0.89,
-    weight: 3,
-    module: 'amenity'
-  },
-  'RequestLateCheckout': {
-    patterns: ['late checkout', 'extend', 'checkout time', 'stay longer', 'more time', 'check out later', 'until', 'extra hours', 'lat checkout', 'extnd'],
-    confidence: 0.87,
-    weight: 3,
-    module: 'booking'
-  },
-  'CancelReservation': {
-    patterns: ['cancel', 'cancellation', 'remove booking', 'delete reservation', 'cant make it', 'need to cancel', 'cancel my', 'cansel', 'cancelation'],
-    confidence: 0.95,
-    weight: 4,
-    module: 'booking'
-  },
-  'PaymentInquiry': {
-    patterns: ['payment', 'pay', 'bill', 'cost', 'price', 'total', 'charge', 'invoice', 'receipt', 'paymnt', 'bil', 'pric'],
-    confidence: 0.90,
-    weight: 3,
-    module: 'payment'
-  },
-  'FAQ': {
-    patterns: ['policy', 'rules', 'pet', 'smoking', 'cancellation policy', 'check-in time', 'check-out time', 'parking', 'dress code', 'children', 'age limit', 'wifi password', 'breakfast time', 'polcy', 'ruls'],
-    confidence: 0.86,
-    weight: 2,
-    module: 'faq'
-  },
-  'Complaints': {
-    patterns: ['problem', 'issue', 'broken', 'not working', 'dirty', 'noisy', 'cold', 'hot', 'complaint', 'wrong', 'bad', 'terrible', 'awful', 'disappointed', 'problm', 'isue', 'brokn'],
-    confidence: 0.91,
-    weight: 4,
-    module: 'support'
-  },
-  'SpeakToHuman': {
-    patterns: ['human', 'person', 'agent', 'staff', 'concierge', 'manager', 'help', 'talk to someone', 'real person', 'transfer', 'connect', 'huamn', 'persn', 'manger'],
-    confidence: 0.93,
-    weight: 3,
-    module: 'support'
-  },
-  'ThankYou': {
-    patterns: ['thank', 'thanks', 'appreciate', 'grateful', 'perfect', 'great', 'awesome', 'wonderful', 'excellent', 'thnk', 'thanx', 'grat'],
-    confidence: 0.85,
-    weight: 1,
-    module: 'general'
-  }
-};
-
-// FAQ Database
-const faqDatabase = {
-  'check-in': {
-    question: 'What time is check-in?',
-    answer: 'Check-in is from 3:00 PM onwards. Early check-in is available subject to room availability.',
-    keywords: ['check-in', 'checkin', 'arrival', 'early check-in']
-  },
-  'check-out': {
-    question: 'What time is check-out?',
-    answer: 'Check-out is until 11:00 AM. Late check-out can be arranged for an additional fee.',
-    keywords: ['check-out', 'checkout', 'departure', 'late checkout']
-  },
-  'cancellation': {
-    question: 'What is the cancellation policy?',
-    answer: 'Free cancellation up to 24 hours before check-in. Cancellations within 24 hours incur a one-night charge.',
-    keywords: ['cancel', 'cancellation', 'refund', 'policy']
-  },
-  'wifi': {
-    question: 'Is WiFi available?',
-    answer: 'Complimentary high-speed WiFi is available throughout the hotel. Password: GrandLuxury2024',
-    keywords: ['wifi', 'internet', 'password', 'connection']
-  },
-  'breakfast': {
-    question: 'What are breakfast hours?',
-    answer: 'Breakfast is served from 6:30 AM to 10:30 AM daily. Continental and à la carte options available.',
-    keywords: ['breakfast', 'dining', 'hours', 'morning']
-  },
-  'parking': {
-    question: 'Is parking available?',
-    answer: 'Complimentary valet parking is available for all guests. Self-parking is also available.',
-    keywords: ['parking', 'valet', 'car', 'vehicle']
-  },
-  'pets': {
-    question: 'Are pets allowed?',
-    answer: 'We welcome pets with advance notice. Pet fee is $50 per night. Service animals are always welcome.',
-    keywords: ['pets', 'dogs', 'cats', 'animals', 'pet policy']
-  },
-  'smoking': {
-    question: 'Is smoking allowed?',
-    answer: 'Our hotel is completely non-smoking. Designated smoking areas are available on the terrace.',
-    keywords: ['smoking', 'smoke', 'cigarettes', 'non-smoking']
-  }
-};
-
-// Department Contact Information
-const departmentContacts = {
-  'booking': {
-    name: 'Reservations & Booking',
-    phone: '+1 (555) 123-4567',
-    email: 'reservations@grandluxury.com',
-    hours: '24/7',
-    description: 'Room bookings, modifications, cancellations'
-  },
-  'food': {
-    name: 'Room Service & Dining',
-    phone: '+1 (555) 123-4568',
-    email: 'roomservice@grandluxury.com',
-    hours: '24/7',
-    description: 'Food orders, dietary requirements, dining reservations'
-  },
-  'amenity': {
-    name: 'Spa & Amenities',
-    phone: '+1 (555) 123-4569',
-    email: 'spa@grandluxury.com',
-    hours: '6 AM - 10 PM',
-    description: 'Spa bookings, fitness center, pool services'
-  },
-  'payment': {
-    name: 'Billing & Payments',
-    phone: '+1 (555) 123-4570',
-    email: 'billing@grandluxury.com',
-    hours: '9 AM - 6 PM',
-    description: 'Payment issues, billing inquiries, refunds'
-  },
-  'support': {
-    name: 'Guest Relations',
-    phone: '+1 (555) 123-4571',
-    email: 'support@grandluxury.com',
-    hours: '24/7',
-    description: 'General assistance, complaints, special requests'
-  },
-  'concierge': {
-    name: 'Concierge Services',
-    phone: '+1 (555) 123-4572',
-    email: 'concierge@grandluxury.com',
-    hours: '6 AM - 11 PM',
-    description: 'Local recommendations, transportation, event planning'
-  }
-};
-
 const UnifiedHotelChatbot = () => {
   // State management
   const [messages, setMessages] = useState<Message[]>([]);
@@ -300,38 +90,6 @@ const UnifiedHotelChatbot = () => {
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
-
-  // Sample data
-  const menuItems: MenuItem[] = [
-    { id: '1', name: 'Continental Breakfast', price: 25, category: 'Breakfast', description: 'Fresh pastries, fruits, coffee' },
-    { id: '2', name: 'Grilled Salmon', price: 35, category: 'Main Course', description: 'Atlantic salmon with vegetables' },
-    { id: '3', name: 'Caesar Salad', price: 18, category: 'Salads', description: 'Classic caesar with parmesan' },
-    { id: '4', name: 'Chocolate Cake', price: 12, category: 'Desserts', description: 'Rich chocolate layer cake' }
-  ];
-
-  const amenityServices: AmenityService[] = [
-    { id: '1', name: 'Spa Massage', category: 'Spa', price: 120, duration: '60 min', description: 'Relaxing full body massage', availability: '9 AM - 8 PM' },
-    { id: '2', name: 'Pool Access', category: 'Recreation', price: 0, duration: 'All day', description: 'Rooftop infinity pool', availability: '6 AM - 10 PM' },
-    { id: '3', name: 'Fitness Center', category: 'Fitness', price: 0, duration: 'All day', description: 'State-of-the-art gym', availability: '24/7' },
-    { id: '4', name: 'Business Center', category: 'Business', price: 15, duration: '1 hour', description: 'Printing and meeting rooms', availability: '6 AM - 10 PM' }
-  ];
-
-  // Memoized data for performance
-  const categorizedMenuItems = useMemo(() => {
-    const categories = [...new Set(menuItems.map(item => item.category))];
-    return categories.map(category => ({
-      category,
-      items: menuItems.filter(item => item.category === category)
-    }));
-  }, []);
-
-  const categorizedAmenityServices = useMemo(() => {
-    const categories = [...new Set(amenityServices.map(a => a.category))];
-    return categories.map(category => ({
-      category,
-      items: amenityServices.filter(a => a.category === category)
-    }));
-  }, []);
 
   // Initialize chatbot
   useEffect(() => {
@@ -365,125 +123,6 @@ const UnifiedHotelChatbot = () => {
     }
   };
 
-  // Enhanced intent detection with spell correction and fuzzy matching
-  const detectIntent = (text: string): { intent: string; confidence: number; entities: any } => {
-    // First apply spell correction
-    const { correctedText } = correctSpellingAndDetectIntent(text);
-    const lowerText = correctedText.toLowerCase();
-    let bestMatch = { intent: 'fallback', confidence: 0.1, entities: {} };
-
-    // Use training data for intent detection
-    for (const [intentName, intentData] of Object.entries(intentTrainingData)) {
-      const matches = intentData.patterns.filter((pattern: string) => {
-        // Exact match
-        if (lowerText.includes(pattern)) return true;
-        
-        // Fuzzy match for common typos
-        const words = lowerText.split(' ');
-        return words.some(word => {
-          const distance = levenshteinDistance(word, pattern);
-          return distance <= 2 && word.length > 3; // Allow 2 character differences for words longer than 3
-        });
-      });
-      
-      if (matches.length > 0) {
-        const baseScore = matches.length * intentData.weight * 0.1;
-        const confidence = Math.min(intentData.confidence + baseScore, 0.98);
-        
-        if (confidence > bestMatch.confidence) {
-          bestMatch = {
-            intent: intentName,
-            confidence,
-            entities: extractEntities(correctedText, intentName)
-          };
-        }
-      }
-    }
-
-    // Context-based follow-up detection
-    if (sessionContext.previousIntents.length > 0) {
-      const lastIntent = sessionContext.previousIntents[sessionContext.previousIntents.length - 1];
-      
-      if (lowerText.includes('price') || lowerText.includes('cost') || lowerText.includes('how much')) {
-        return { intent: 'PaymentInquiry', confidence: 0.85, entities: { followUp: 'pricing', relatedIntent: lastIntent } };
-      }
-      if (lowerText.match(/^(yes|yeah|ok|sure|sounds good|perfect)$/i)) {
-        return { intent: lastIntent, confidence: 0.90, entities: { confirmation: true } };
-      }
-      if (lowerText.match(/^(no|nope|not now|maybe later)$/i)) {
-        return { intent: 'decline', confidence: 0.88, entities: { decline: true } };
-      }
-    }
-
-    return bestMatch;
-  };
-
-  // Levenshtein distance for fuzzy matching
-  const levenshteinDistance = (str1: string, str2: string): number => {
-    const matrix = [];
-    
-    for (let i = 0; i <= str2.length; i++) {
-      matrix[i] = [i];
-    }
-    
-    for (let j = 0; j <= str1.length; j++) {
-      matrix[0][j] = j;
-    }
-    
-    for (let i = 1; i <= str2.length; i++) {
-      for (let j = 1; j <= str1.length; j++) {
-        if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
-          matrix[i][j] = matrix[i - 1][j - 1];
-        } else {
-          matrix[i][j] = Math.min(
-            matrix[i - 1][j - 1] + 1,
-            matrix[i][j - 1] + 1,
-            matrix[i - 1][j] + 1
-          );
-        }
-      }
-    }
-    
-    return matrix[str2.length][str1.length];
-  };
-
-  const extractEntities = (text: string, intent: string): any => {
-    const entities: any = {};
-    const lowerText = text.toLowerCase();
-
-    // Date extraction
-    if (lowerText.includes('tonight')) entities.date = 'tonight';
-    if (lowerText.includes('tomorrow')) entities.date = 'tomorrow';
-    if (lowerText.includes('weekend')) entities.date = 'weekend';
-    if (lowerText.includes('next week')) entities.date = 'next week';
-    if (lowerText.match(/\d{1,2}[\/\-]\d{1,2}/)) entities.date = 'specific_date';
-
-    // Room type extraction
-    if (lowerText.includes('suite')) entities.roomType = 'suite';
-    if (lowerText.includes('deluxe')) entities.roomType = 'deluxe';
-    if (lowerText.includes('ocean view') || lowerText.includes('sea view')) entities.roomType = 'ocean view';
-    if (lowerText.includes('king')) entities.bedType = 'king';
-    if (lowerText.includes('queen')) entities.bedType = 'queen';
-
-    // Guest count
-    const guestMatch = text.match(/(\d+)\s*(guest|person|people)/i);
-    if (guestMatch) entities.guests = parseInt(guestMatch[1]);
-
-    // Food items
-    if (intent === 'RequestRoomService') {
-      if (lowerText.includes('breakfast')) entities.meal = 'breakfast';
-      if (lowerText.includes('lunch')) entities.meal = 'lunch';
-      if (lowerText.includes('dinner')) entities.meal = 'dinner';
-      if (lowerText.includes('coffee')) entities.beverage = 'coffee';
-    }
-
-    // Time extraction
-    const timeMatch = text.match(/(\d{1,2}):?(\d{0,2})\s*(am|pm)/i);
-    if (timeMatch) entities.time = timeMatch[0];
-
-    return entities;
-  };
-
   const addBotMessage = (content: string, type?: string, data?: any) => {
     const newMessage: Message = {
       id: Date.now().toString(),
@@ -506,135 +145,23 @@ const UnifiedHotelChatbot = () => {
 
     if (fallbackCount === 1) {
       return {
-        text: "I want to make sure I understand you perfectly. Could you rephrase that or tell me more specifically what you'd like help with? I can assist with room bookings, restaurant recommendations, amenities, or connecting you with our staff.",
+        text: "I want to make sure I understand you perfectly. Could you rephrase that or tell me more specifically what you'd like help with?",
         type: 'text' as const
-      };
-    } else if (fallbackCount === 2) {
-      return {
-        text: "I apologize for the confusion. Let me offer you some options I can definitely help with:",
-        type: 'smart-suggestions' as const,
-        data: {
-          suggestions: [
-            { title: "Check Room Availability", action: "room_availability", description: "Find and book rooms" },
-            { title: "Order Room Service", action: "room_service", description: "Browse our delicious menu" },
-            { title: "Hotel Amenities", action: "amenities", description: "Explore our facilities" },
-            { title: "Speak to Staff", action: "human_agent", description: "Connect with our team" }
-          ]
-        }
       };
     } else {
       return {
-        text: "I'd love to connect you with one of our helpful staff members who can assist you better. Would you like me to transfer you to our concierge desk?",
-        type: 'contact-info' as const,
+        text: "I'd love to connect you with one of our helpful staff members who can assist you better.",
+        type: 'department-contacts' as const,
         data: {
           departments: [
-            { name: "Front Desk", phone: "+1 (555) 123-4567", description: "Check-in, reservations, general inquiries" },
-            { name: "Concierge", phone: "+1 (555) 123-4568", description: "Local recommendations, bookings, special requests" },
-            { name: "Room Service", phone: "+1 (555) 123-4569", description: "Food orders and dining assistance" }
+            { department: "Front Desk", phone: "+1 (555) 123-4567", hours: "24/7", description: "Check-in, reservations, general inquiries" }
           ]
         }
       };
     }
   };
 
-  // Enhanced FAQ search function
-  const searchFAQ = (text: string): any => {
-    const lowerText = text.toLowerCase();
-    
-    for (const [key, faq] of Object.entries(faqDatabase)) {
-      const matchesKeywords = faq.keywords.some(keyword => lowerText.includes(keyword));
-      const matchesQuestion = lowerText.includes(faq.question.toLowerCase());
-      
-      if (matchesKeywords || matchesQuestion) {
-        return {
-          question: faq.question,
-          answer: faq.answer,
-          confidence: matchesQuestion ? 0.95 : 0.85
-        };
-      }
-    }
-    return null;
-  };
-
-  // Spell correction and intent enhancement
-  const correctSpellingAndDetectIntent = (text: string): { correctedText: string; suggestedIntent?: string } => {
-    let correctedText = text;
-    
-    // Common hotel-related spelling corrections
-    const corrections = {
-      'amenity': ['amnity', 'ameniti', 'amenty'],
-      'reservation': ['reservaton', 'resevation', 'reserv'],
-      'restaurant': ['restarant', 'resturant', 'restrant'],
-      'breakfast': ['brekfast', 'breakfst', 'breckfast'],
-      'available': ['availabel', 'avalible', 'availble'],
-      'massage': ['masage', 'massag', 'mesage'],
-      'concierge': ['consierge', 'concierj', 'concierg'],
-      'facility': ['faciliti', 'facillity', 'facilitie']
-    };
-
-    for (const [correct, misspellings] of Object.entries(corrections)) {
-      misspellings.forEach(misspell => {
-        if (correctedText.toLowerCase().includes(misspell)) {
-          correctedText = correctedText.replace(new RegExp(misspell, 'gi'), correct);
-        }
-      });
-    }
-
-    return { correctedText };
-  };
-
-  // Enhanced module-based response routing
-  const routeToModule = (intent: string, userText: string, entities: any): any => {
-    const module = intentTrainingData[intent]?.module;
-    
-    switch (module) {
-      case 'faq':
-        const faqResult = searchFAQ(userText);
-        if (faqResult) {
-          return {
-            text: faqResult.answer,
-            type: 'text' as const,
-            confidence: faqResult.confidence
-          };
-        }
-        break;
-      
-      case 'support':
-        return {
-          text: "I'm sorry you're experiencing an issue. Let me connect you with the right department to help resolve this quickly:",
-          type: 'department-contacts' as const,
-          data: {
-            departments: Object.values(departmentContacts).map(dept => ({
-              department: dept.name,
-              phone: dept.phone,
-              email: dept.email,
-              hours: dept.hours,
-              description: dept.description
-            }))
-          }
-        };
-      
-      case 'payment':
-        return {
-          text: "I can help you with payment and billing inquiries. Here are your options:",
-          type: 'payment-options' as const,
-          data: {
-            options: [
-              { title: "Pay Outstanding Balance", action: "pay_balance", description: "Complete any pending payments" },
-              { title: "View Bill Details", action: "view_bill", description: "See detailed breakdown of charges" },
-              { title: "Payment History", action: "payment_history", description: "Review past transactions" },
-              { title: "Billing Support", action: "billing_support", description: "Speak with billing department" }
-            ]
-          }
-        };
-    }
-    
-    return null;
-  };
-
   const generateResponse = (intent: string, confidence: number, entities: any, userText: string) => {
-    console.log(`Intent: ${intent}, Confidence: ${confidence}, Entities:`, entities);
-
     // Check for FAQ first
     if (intent === 'FAQ' || confidence < 0.65) {
       const faqResult = searchFAQ(userText);
@@ -663,114 +190,27 @@ const UnifiedHotelChatbot = () => {
       fallbackCount: 0
     }));
 
-    const guestName = sessionContext.guestName || '';
-    const personalGreeting = guestName ? `${guestName}, ` : '';
-
     switch (intent) {
       case 'GreetGuest':
-        const timeGreeting = new Date().getHours() < 12 ? 'Good morning' : new Date().getHours() < 17 ? 'Good afternoon' : 'Good evening';
         return {
-          text: `${timeGreeting}! Welcome to The Grand Luxury Hotel. I'm Sofia, your AI concierge assistant. I'm delighted to help make your stay extraordinary. What can I assist you with today?`,
-          type: 'greeting-buttons' as const,
-          data: {
-            buttons: [
-              { text: "Check Availability", action: "room_availability" },
-              { text: "Room Service", action: "room_service" },
-              { text: "Hotel Amenities", action: "amenities" },
-              { text: "Guest Services", action: "services" }
-            ]
-          }
+          text: "Hello! Welcome to The Grand Luxury Hotel. I'm Sofia, your AI concierge assistant. How can I help you today?",
+          type: 'greeting-buttons' as const
         };
 
       case 'CheckRoomAvailability':
-        if (entities.followUp === 'pricing') {
-          return {
-            text: `Here are our current rates${personalGreeting ? ` for you, ${personalGreeting}` : ''}:`,
-            type: 'room-cards' as const,
-            data: {
-              rooms: [
-                { 
-                  id: '1', 
-                  name: 'Sea View Deluxe', 
-                  type: 'deluxe', 
-                  price_per_night: 349, 
-                  features: ['Ocean balcony', 'King bed', 'Complimentary champagne'], 
-                  max_guests: 2,
-                  image_url: '/placeholder.svg',
-                  available: true
-                },
-                { 
-                  id: '2', 
-                  name: 'City View Premium', 
-                  type: 'premium', 
-                  price_per_night: 299, 
-                  features: ['City skyline', 'Queen bed', 'Work desk'], 
-                  max_guests: 2,
-                  image_url: '/placeholder.svg',
-                  available: true
-                },
-                { 
-                  id: '3', 
-                  name: 'Garden Suite', 
-                  type: 'suite', 
-                  price_per_night: 449, 
-                  features: ['Living area', 'Garden terrace', 'Butler service'], 
-                  max_guests: 4,
-                  image_url: '/placeholder.svg',
-                  available: true
-                }
-              ]
-            }
-          };
-        }
-        
-        const dateText = entities.date ? ` for ${entities.date}` : '';
-        const roomText = entities.roomType ? ` ${entities.roomType}` : '';
-        
         return {
-          text: `Absolutely! I'd be delighted to help you find the perfect${roomText} room${dateText}. Let me check our availability... Wonderful news! We have several beautiful options available:`,
+          text: "I'd be delighted to help you find the perfect room. Here are our available options:",
           type: 'room-cards' as const,
           data: {
             rooms: [
-              { 
-                id: '1', 
-                name: 'Sea View Deluxe', 
-                type: 'deluxe', 
-                price_per_night: 349, 
-                features: ['Ocean views', 'Complimentary champagne'], 
-                max_guests: 2,
-                image_url: '/placeholder.svg',
-                available: true
-              },
-              { 
-                id: '2', 
-                name: 'City View Premium', 
-                type: 'premium', 
-                price_per_night: 299, 
-                features: ['City skyline', 'Work area'], 
-                max_guests: 2,
-                image_url: '/placeholder.svg',
-                available: true
-              },
-              { 
-                id: '3', 
-                name: 'Garden Suite', 
-                type: 'suite', 
-                price_per_night: 449, 
-                features: ['Private terrace', 'Butler service'], 
-                max_guests: 4,
-                image_url: '/placeholder.svg',
-                available: true
-              }
+              { id: '1', name: 'Sea View Deluxe', type: 'deluxe', price_per_night: 349, features: ['Ocean views'], max_guests: 2, image_url: '/placeholder.svg', available: true }
             ]
           }
         };
 
       case 'RequestRoomService':
-        const mealType = entities.meal || 'our signature dishes';
-        
         return {
-          text: `I'd be absolutely delighted to arrange room service for you! Our culinary team creates magic in the kitchen. Here's what we're featuring for ${mealType}:`,
+          text: "I'd be delighted to show you our room service menu:",
           type: 'menu-items' as const,
           data: {
             items: menuItems,
@@ -780,130 +220,11 @@ const UnifiedHotelChatbot = () => {
 
       case 'AskAboutAmenities':
         return {
-          text: `I'm thrilled to share our world-class amenities with you! The Grand Luxury Hotel offers everything you need for an unforgettable stay:`,
+          text: "Here are our world-class amenities:",
           type: 'amenity-info' as const,
           data: {
             amenities: amenityServices
           }
-        };
-
-      case 'SpeakToHuman':
-        return {
-          text: `Of course! I'll connect you with our Guest Relations team right away. They're absolutely wonderful and will give you the personalized attention you deserve.`,
-          type: 'department-contacts' as const,
-          data: {
-            departments: [
-              { department: "Front Desk", phone: "+1 (555) 123-4567", email: "frontdesk@grandluxury.com", hours: "24/7", description: "Check-in, reservations, general inquiries", icon: "User" },
-              { department: "Concierge", phone: "+1 (555) 123-4568", email: "concierge@grandluxury.com", hours: "6 AM - 11 PM", description: "Local recommendations, bookings, special requests", icon: "MapPin" },
-              { department: "Room Service", phone: "+1 (555) 123-4569", email: "roomservice@grandluxury.com", hours: "24/7", description: "Food orders and dining assistance", icon: "Utensils" }
-            ]
-          }
-        };
-
-      case 'ViewBooking':
-        if (isVerified && guestBooking) {
-          return {
-            text: `Here are your current booking details, ${personalGreeting}:`,
-            type: 'guest-profile' as const,
-            data: { booking: guestBooking }
-          };
-        } else {
-          return {
-            text: "I'd be happy to help you view your booking details! Please provide your booking confirmation number:",
-            type: 'text' as const
-          };
-        }
-
-      case 'ModifyBooking':
-        if (isVerified && guestBooking) {
-          return {
-            text: `I can help you modify your booking, ${personalGreeting}. What would you like to change?`,
-            type: 'booking-modification' as const,
-            data: {
-              currentBooking: guestBooking,
-              options: [
-                { title: "Change Dates", action: "change_dates", description: "Modify check-in/check-out dates" },
-                { title: "Change Room Type", action: "change_room", description: "Upgrade or change room category" },
-                { title: "Add Guests", action: "add_guests", description: "Modify guest count" },
-                { title: "Special Requests", action: "special_requests", description: "Add dietary or accessibility needs" }
-              ]
-            }
-          };
-        } else {
-          return {
-            text: "To modify your booking, I'll need to verify your reservation first. Please provide your booking confirmation number:",
-            type: 'text' as const
-          };
-        }
-
-      case 'ModifyFoodOrder':
-        if (currentOrder.items.length > 0) {
-          return {
-            text: "I can help you modify your current food order. What changes would you like to make?",
-            type: 'order-modification' as const,
-            data: {
-              currentOrder: currentOrder.items,
-              options: [
-                { title: "Add Items", action: "add_items", description: "Add more dishes to your order" },
-                { title: "Remove Items", action: "remove_items", description: "Remove items from your order" },
-                { title: "Change Quantities", action: "change_quantity", description: "Modify item quantities" },
-                { title: "Cancel Order", action: "cancel_order", description: "Cancel the entire order" }
-              ]
-            }
-          };
-        } else {
-          return {
-            text: "You don't have any active food orders to modify. Would you like to place a new order?",
-            type: 'text' as const
-          };
-        }
-
-      case 'AddAmenity':
-        return {
-          text: `Perfect! I'd love to help you add amenities to enhance your stay${personalGreeting ? `, ${personalGreeting}` : ''}. Here are our available services:`,
-          type: 'amenity-booking' as const,
-          data: {
-            amenities: amenityServices.map(amenity => ({
-              ...amenity,
-              bookable: true
-            }))
-          }
-        };
-
-      case 'PaymentInquiry':
-        const relatedIntent = entities?.relatedIntent;
-        if (relatedIntent === 'RequestRoomService' && currentOrder.items.length > 0) {
-          const total = currentOrder.items.reduce((sum, item) => sum + item.price, 0);
-          return {
-            text: `Your current food order total is $${total.toFixed(2)}. Would you like to proceed with payment?`,
-            type: 'payment-summary' as const,
-            data: {
-              type: 'food',
-              items: currentOrder.items,
-              total: total
-            }
-          };
-        } else if (isVerified && guestBooking) {
-          return {
-            text: `Here's your billing information for booking ${guestBooking.booking_number}:`,
-            type: 'payment-summary' as const,
-            data: {
-              type: 'booking',
-              booking: guestBooking,
-              total: guestBooking.total_amount || 0
-            }
-          };
-        } else {
-          return {
-            text: "I can help you with payment and billing inquiries. What specific information do you need?",
-            type: 'text' as const
-          };
-        }
-
-      case 'ThankYou':
-        return {
-          text: `You're absolutely welcome${personalGreeting ? `, ${personalGreeting}` : ''}! It's my pleasure to assist you. Is there anything else I can help you with to make your stay even more wonderful?`,
-          type: 'text' as const
         };
 
       default:
@@ -922,602 +243,49 @@ const UnifiedHotelChatbot = () => {
     };
 
     setMessages(prev => [...prev, userMessage]);
-
-    // Save user message to database
-    if (sessionId) {
-      try {
-        await supabase
-          .from('messages')
-          .insert({
-            session_id: sessionId,
-            content: input,
-            sender: 'user',
-            timestamp: new Date().toISOString()
-          });
-      } catch (error) {
-        console.error('Error saving user message:', error);
-      }
-    }
-
     const userInput = input;
     setInput('');
 
-    // Handle booking number verification
-    if (awaitingInput === 'booking_verification') {
-      await handleBookingVerification(userInput);
-      return;
-    }
-
     // Detect intent and generate response
-    const { intent, confidence, entities } = detectIntent(userInput);
+    const { intent, confidence, entities } = detectIntent(userInput, sessionContext);
     const response = generateResponse(intent, confidence, entities, userInput);
 
-    // Add bot response
     setTimeout(() => {
       addBotMessage(response.text, response.type, response.data);
-      
-      // Save bot message to database
-      if (sessionId) {
-        try {
-          supabase
-            .from('messages')
-            .insert({
-              session_id: sessionId,
-              content: response.text,
-              sender: 'bot',
-              intent,
-              confidence,
-              entities,
-              timestamp: new Date().toISOString()
-            });
-        } catch (error) {
-          console.error('Error saving bot message:', error);
-        }
-      }
     }, 1000);
-  };
-
-  const handleBookingVerification = async (bookingNumber: string) => {
-    try {
-      const { data: booking, error } = await supabase
-        .from('guest_bookings')
-        .select('*')
-        .eq('booking_number', bookingNumber.toUpperCase())
-        .single();
-
-      if (error || !booking) {
-        addBotMessage("I couldn't find a booking with that number. Please check and try again, or would you like to speak with our front desk for assistance?", 'text');
-        setAwaitingInput('');
-        return;
-      }
-
-      setGuestBooking(booking);
-      setIsVerified(true);
-      setGuestName(booking.guest_name);
-      setAwaitingInput('');
-      
-      addBotMessage(`Perfect! Welcome back, ${booking.guest_name}! I've found your reservation for ${booking.room_type} from ${booking.check_in} to ${booking.check_out}. How can I make your stay even more special today?`, 'guest-profile', {
-        booking: booking
-      });
-
-      toast({
-        title: "Booking Verified",
-        description: `Welcome back, ${booking.guest_name}!`,
-      });
-
-    } catch (error) {
-      console.error('Error verifying booking:', error);
-      addBotMessage("I'm having trouble accessing our booking system right now. Please try again in a moment or contact our front desk.", 'text');
-      setAwaitingInput('');
-    }
   };
 
   const handleQuickAction = (action: string) => {
     switch (action) {
       case 'room_availability':
-        addBotMessage("I'd love to help you find the perfect room! Let me show you our available options:", 'room-cards', {
-          rooms: [
-            { id: '1', name: 'Sea View Deluxe', type: 'deluxe', price_per_night: 349, features: ['Ocean views', 'King bed'], max_guests: 2, image_url: '/placeholder.svg', available: true },
-            { id: '2', name: 'City View Premium', type: 'premium', price_per_night: 299, features: ['City skyline', 'Queen bed'], max_guests: 2, image_url: '/placeholder.svg', available: true }
-          ]
+        addBotMessage("Here are our available rooms:", 'room-cards', {
+          rooms: [{ id: '1', name: 'Sea View Deluxe', type: 'deluxe', price_per_night: 349, features: ['Ocean views'], max_guests: 2, image_url: '/placeholder.svg', available: true }]
         });
         break;
       case 'room_service':
-        addBotMessage("I'd be delighted to show you our room service menu! Here are our specialties:", 'menu-items', {
-          items: menuItems,
-          categorized: true
-        });
+        addBotMessage("Here's our room service menu:", 'menu-items', { items: menuItems, categorized: true });
         break;
       case 'amenities':
-        addBotMessage("Here are our fantastic amenities and facilities:", 'amenity-info', {
-          amenities: amenityServices
-        });
-        break;
-      case 'verify_booking':
-        addBotMessage("I'd be happy to help you access your booking information! Please provide your booking confirmation number:", 'text');
-        setAwaitingInput('booking_verification');
+        addBotMessage("Here are our amenities:", 'amenity-info', { amenities: amenityServices });
         break;
     }
   };
 
   const handleRoomSelection = (room: Room) => {
-    setCurrentBooking(prev => ({ ...prev, room }));
-    addBotMessage(`Excellent choice! The ${room.name} is absolutely stunning. To proceed with your reservation, I'll need a few details. Shall we start with your check-in and check-out dates?`, 'booking-summary', {
-      room,
-      step: 'dates'
-    });
+    addBotMessage(`Excellent choice! The ${room.name} is perfect.`, 'text');
   };
 
   const handleMenuItemSelection = (item: MenuItem) => {
-    setCurrentOrder(prev => ({
-      ...prev,
-      items: [...prev.items, item]
-    }));
-    
-    addBotMessage(`Perfect! I've added ${item.name} to your order. Would you like to add anything else or shall I arrange delivery to your room?`, 'text');
-    
-    // Update user activity
-    setUserActivity(prev => [...prev, 'room_service']);
+    setCurrentOrder(prev => ({ ...prev, items: [...prev.items, item] }));
+    addBotMessage(`Added ${item.name} to your order.`, 'text');
   };
 
   const handleAmenityBooking = (amenity: AmenityService) => {
-    if (amenity.price > 0) {
-      addBotMessage(`I'd be delighted to book ${amenity.name} for you! This ${amenity.duration} experience costs $${amenity.price}. Shall I proceed with the booking?`, 'amenity-booking', {
-        amenity,
-        needsPayment: true
-      });
-    } else {
-      addBotMessage(`Wonderful! ${amenity.name} is complimentary for our guests. It's available ${amenity.availability}. Would you like me to provide directions or any additional information?`, 'text');
-    }
-    
-    // Update user activity
-    setUserActivity(prev => [...prev, amenity.category.toLowerCase()]);
+    addBotMessage(`Great choice! ${amenity.name} has been noted.`, 'text');
   };
 
   const handlePaymentClick = (data: any) => {
-    const paymentUrl = "http://localhost:3000/";
-    window.open(paymentUrl, '_blank');
-    
-    addBotMessage(`Payment window opened! Once payment is complete, you'll receive a confirmation email. Your ${data.type === 'amenity' ? 'service booking' : 'food order'} will be processed immediately after payment. Is there anything else I can help you with?`, 'text');
-    
-    // Reset food order after payment
-    if (data.type === 'food') {
-      setCurrentOrder({ items: [] });
-    }
-    
-    // Generate activity-based prompts
-    const prompts = generateActivityPrompts();
-    if (prompts.length > 0) {
-      setTimeout(() => {
-        addBotMessage("Based on your activity, here are some additional AI-powered suggestions:", 'activity-prompts', prompts);
-      }, 2000);
-    }
-  };
-
-  const generateActivityPrompts = () => {
-    const prompts = [];
-    
-    // Only suggest spa if user hasn't already used it
-    if (userActivity.includes('room_service') && 
-        !userActivity.includes('spa') &&
-        !userActivity.some(a => a.includes('massage'))) {
-      prompts.push("Since you've ordered room service, would you like to book a relaxing spa treatment to complete your in-room experience?");
-    }
-    
-    // Only suggest restaurant if user hasn't used it
-    if (userActivity.includes('spa') && 
-        !userActivity.includes('restaurant') && 
-        !userActivity.includes('dining')) {
-      prompts.push("After your spa session, would you like me to make dinner reservations at our rooftop restaurant or arrange romantic room service?");
-    }
-    
-    if (userActivity.includes('fitness') && !userActivity.includes('pool')) {
-      prompts.push("Great workout! How about relaxing by our rooftop pool with a refreshing drink or booking a recovery massage?");
-    }
-
-    if (isVerified && guestBooking?.stay_purpose === 'business' && !userActivity.includes('business_center')) {
-      prompts.push("For your business stay, would you like information about our business center, meeting rooms, or express laundry services?");
-    }
-    
-    // Add AI-powered suggestions based on time of day
-    const hour = new Date().getHours();
-    if (hour >= 17 && hour < 22 && !userActivity.includes('dinner')) {
-      prompts.push("It's dinner time! Would you like to see our dinner menu or make restaurant reservations?");
-    } else if (hour >= 7 && hour < 11 && !userActivity.includes('breakfast')) {
-      prompts.push("Good morning! Would you like to order breakfast to your room?");
-    }
-    
-    return prompts;
-  };
-
-  const renderMessage = (message: Message) => {
-    const isUser = message.sender === 'user';
-
-    if (message.type === 'greeting-buttons') {
-      return (
-        <div className="space-y-3">
-          <p className="text-sm text-muted-foreground mb-3">{message.content}</p>
-          <div className="grid grid-cols-2 gap-2">
-            <Button variant="outline" size="sm" onClick={() => handleQuickAction('room_availability')}>
-              <Calendar className="w-4 h-4 mr-2" />
-              Check Rooms
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => handleQuickAction('room_service')}>
-              <Coffee className="w-4 h-4 mr-2" />
-              Room Service
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => handleQuickAction('amenities')}>
-              <MapPin className="w-4 h-4 mr-2" />
-              Amenities
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => handleQuickAction('verify_booking')}>
-              <User className="w-4 h-4 mr-2" />
-              My Booking
-            </Button>
-          </div>
-        </div>
-      );
-    }
-
-    if (message.type === 'room-cards' && message.data?.rooms) {
-      return (
-        <div className="space-y-3">
-          <p className="text-sm text-muted-foreground mb-3">{message.content}</p>
-          <div className="space-y-3">
-            {message.data.rooms.map((room: Room) => (
-              <Card key={room.id} className="border border-border hover:border-primary/50 transition-colors cursor-pointer" onClick={() => handleRoomSelection(room)}>
-                <CardContent className="p-4">
-                  <div className="flex justify-between items-start mb-2">
-                    <h4 className="font-semibold text-foreground">{room.name}</h4>
-                    <div className="text-right">
-                      <div className="text-lg font-bold text-primary">${room.price_per_night}</div>
-                      <div className="text-xs text-muted-foreground">per night</div>
-                    </div>
-                  </div>
-                  <div className="text-sm text-muted-foreground mb-2">
-                    Max {room.max_guests} guests
-                  </div>
-                  <div className="flex flex-wrap gap-1 mb-3">
-                    {room.features.map((feature: string, index: number) => (
-                      <Badge key={index} variant="secondary" className="text-xs">
-                        {feature}
-                      </Badge>
-                    ))}
-                  </div>
-                  <Button size="sm" className="w-full">
-                    Select Room
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      );
-    }
-
-    if (message.type === 'menu-items' && message.data) {
-      const { items, categorized } = message.data;
-      const categories = [...new Set(items.map((item: MenuItem) => item.category))];
-      
-      return (
-        <div className="space-y-3">
-          <p className="text-sm text-muted-foreground mb-3">{message.content}</p>
-          {categorized ? (
-            categories.map((category: string) => (
-              <div key={category} className="mb-4">
-                <h4 className="font-semibold text-foreground mb-2">{category}</h4>
-                <div className="grid gap-2">
-                  {items.filter((item: MenuItem) => item.category === category).map((item: MenuItem) => (
-                    <Card 
-                      key={item.id} 
-                      className="border border-border hover:border-primary/50 transition-colors cursor-pointer"
-                      onClick={() => handleMenuItemSelection(item)}
-                    >
-                      <CardContent className="p-3">
-                        <div className="flex justify-between items-start">
-                          <div className="flex-1">
-                            <h5 className="font-medium text-foreground">{item.name}</h5>
-                            <p className="text-sm text-muted-foreground">{item.description}</p>
-                          </div>
-                          <div className="text-primary font-semibold ml-2">
-                            ${item.price}
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="grid gap-2">
-              {items.map((item: MenuItem) => (
-                <Card 
-                  key={item.id} 
-                  className="border border-border hover:border-primary/50 transition-colors cursor-pointer"
-                  onClick={() => handleMenuItemSelection(item)}
-                >
-                  <CardContent className="p-3">
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <h5 className="font-medium text-foreground">{item.name}</h5>
-                        <p className="text-sm text-muted-foreground">{item.description}</p>
-                      </div>
-                      <div className="text-primary font-semibold ml-2">
-                        ${item.price}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </div>
-      );
-    }
-
-    if (message.type === 'amenity-info' && message.data?.amenities) {
-      return (
-        <div className="space-y-3">
-          <p className="text-sm text-muted-foreground mb-3">{message.content}</p>
-          <div className="space-y-3">
-            {message.data.amenities.map((amenity: AmenityService) => (
-              <Card key={amenity.id} className="border border-border hover:border-primary/50 transition-colors cursor-pointer" onClick={() => handleAmenityBooking(amenity)}>
-                <CardContent className="p-4">
-                  <div className="flex justify-between items-start mb-2">
-                    <h4 className="font-semibold text-foreground">{amenity.name}</h4>
-                    <div className="text-right">
-                      <div className="text-lg font-bold text-primary">
-                        {amenity.price > 0 ? `$${amenity.price}` : 'Free'}
-                      </div>
-                      <div className="text-xs text-muted-foreground">{amenity.duration}</div>
-                    </div>
-                  </div>
-                  <p className="text-sm text-muted-foreground mb-2">{amenity.description}</p>
-                  <div className="text-xs text-muted-foreground mb-3">
-                    Available: {amenity.availability}
-                  </div>
-                  <Button size="sm" className="w-full">
-                    {amenity.price > 0 ? 'Book Now' : 'Learn More'}
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      );
-    }
-
-    if (message.type === 'department-contacts' && message.data?.departments) {
-      return (
-        <div className="space-y-3">
-          <p className="text-sm text-muted-foreground mb-3">{message.content}</p>
-          <div className="space-y-3">
-            {message.data.departments.map((dept: any, index: number) => (
-              <Card key={index} className="border border-border">
-                <CardContent className="p-4">
-                  <div className="flex items-start space-x-3">
-                    <div className="flex-1">
-                      <h4 className="font-semibold text-foreground">{dept.department}</h4>
-                      <p className="text-sm text-muted-foreground mb-2">{dept.description}</p>
-                      <div className="space-y-1 text-xs text-muted-foreground">
-                        <div className="flex items-center">
-                          <Phone className="w-3 h-3 mr-1" />
-                          {dept.phone}
-                        </div>
-                        <div className="flex items-center">
-                          <Clock className="w-3 h-3 mr-1" />
-                          {dept.hours}
-                        </div>
-                      </div>
-                    </div>
-                    <Button size="sm" variant="outline">
-                      Call Now
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      );
-    }
-
-    if (message.type === 'guest-profile' && message.data?.booking) {
-      const booking = message.data.booking;
-      return (
-        <div className="space-y-3">
-          <p className="text-sm text-muted-foreground mb-3">{message.content}</p>
-          <Card className="border border-border">
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center">
-                <CheckCircle className="w-5 h-5 mr-2 text-green-500" />
-                Booking Confirmed
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <span className="font-medium">Guest:</span>
-                  <p className="text-muted-foreground">{booking.guest_name}</p>
-                </div>
-                <div>
-                  <span className="font-medium">Room:</span>
-                  <p className="text-muted-foreground">{booking.room_type}</p>
-                </div>
-                <div>
-                  <span className="font-medium">Check-in:</span>
-                  <p className="text-muted-foreground">{booking.check_in}</p>
-                </div>
-                <div>
-                  <span className="font-medium">Check-out:</span>
-                  <p className="text-muted-foreground">{booking.check_out}</p>
-                </div>
-              </div>
-              {booking.special_requests && (
-                <div>
-                  <span className="font-medium">Special Requests:</span>
-                  <p className="text-muted-foreground text-sm">{booking.special_requests}</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      );
-    }
-
-    if (message.type === 'activity-prompts' && message.data) {
-      return (
-        <div className="space-y-3">
-          <p className="text-sm text-muted-foreground mb-3">{message.content}</p>
-          <div className="space-y-2">
-            {message.data.map((prompt: string, index: number) => (
-              <Card key={index} className="border border-primary/20 bg-primary/5">
-                <CardContent className="p-3">
-                  <div className="flex items-start space-x-2">
-                    <Brain className="w-4 h-4 text-primary mt-1 flex-shrink-0" />
-                    <p className="text-sm text-foreground">{prompt}</p>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      );
-    }
-
-    if (message.type === 'booking-modification' && message.data) {
-      return (
-        <div className="space-y-3">
-          <p className="text-sm text-muted-foreground mb-3">{message.content}</p>
-          <div className="grid grid-cols-2 gap-2">
-            {message.data.options.map((option: any, index: number) => (
-              <Button 
-                key={index} 
-                variant="outline" 
-                size="sm" 
-                className="h-auto p-3 flex flex-col items-start"
-                onClick={() => handleQuickAction(option.action)}
-              >
-                <span className="font-medium">{option.title}</span>
-                <span className="text-xs text-muted-foreground mt-1">{option.description}</span>
-              </Button>
-            ))}
-          </div>
-        </div>
-      );
-    }
-
-    if (message.type === 'payment-summary' && message.data) {
-      return (
-        <div className="space-y-3">
-          <p className="text-sm text-muted-foreground mb-3">{message.content}</p>
-          <Card className="border border-border">
-            <CardContent className="p-4">
-              {message.data.type === 'food' && (
-                <>
-                  <h4 className="font-semibold mb-2">Order Summary</h4>
-                  {message.data.items.map((item: any, index: number) => (
-                    <div key={index} className="flex justify-between text-sm mb-1">
-                      <span>{item.name}</span>
-                      <span>${item.price}</span>
-                    </div>
-                  ))}
-                  <div className="border-t pt-2 mt-2">
-                    <div className="flex justify-between font-semibold">
-                      <span>Total</span>
-                      <span>${message.data.total.toFixed(2)}</span>
-                    </div>
-                  </div>
-                </>
-              )}
-              {message.data.type === 'booking' && (
-                <>
-                  <h4 className="font-semibold mb-2">Booking Summary</h4>
-                  <div className="text-sm space-y-1">
-                    <div className="flex justify-between">
-                      <span>Booking Number:</span>
-                      <span>{message.data.booking.booking_number}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Room Type:</span>
-                      <span>{message.data.booking.room_type}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Total Amount:</span>
-                      <span>${message.data.total}</span>
-                    </div>
-                  </div>
-                </>
-              )}
-              <Button 
-                className="w-full mt-3 bg-green-600 hover:bg-green-700"
-                onClick={() => handlePaymentClick(message.data)}
-              >
-                Proceed to Payment
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      );
-    }
-
-    if (message.type === 'payment-options' && message.data) {
-      return (
-        <div className="space-y-3">
-          <p className="text-sm text-muted-foreground mb-3">{message.content}</p>
-          <div className="grid gap-2">
-            {message.data.options.map((option: any, index: number) => (
-              <Button 
-                key={index} 
-                variant="outline" 
-                size="sm" 
-                className="h-auto p-3 flex justify-between items-center"
-                onClick={() => handleQuickAction(option.action)}
-              >
-                <div className="text-left">
-                  <div className="font-medium">{option.title}</div>
-                  <div className="text-xs text-muted-foreground">{option.description}</div>
-                </div>
-                <CreditCard className="w-4 h-4" />
-              </Button>
-            ))}
-          </div>
-        </div>
-      );
-    }
-
-    if (message.type === 'amenity-booking' && message.data) {
-      return (
-        <div className="space-y-3">
-          <p className="text-sm text-muted-foreground mb-3">{message.content}</p>
-          {message.data.needsPayment && (
-            <Button 
-              className="w-full mt-3 bg-green-600 hover:bg-green-700"
-              onClick={() => handlePaymentClick({ type: 'amenity', ...message.data.amenity })}
-            >
-              Proceed to Secure Payment
-            </Button>
-          )}
-        </div>
-      );
-    }
-
-    // Default text message
-    return (
-      <div className="space-y-2">
-        <p className="text-sm text-foreground whitespace-pre-line">{message.content}</p>
-        {message.intent && message.confidence && (
-          <div className="flex items-center space-x-2 text-xs text-muted-foreground">
-            <Brain className="w-3 h-3" />
-            <span>Intent: {message.intent}</span>
-            <Badge variant="outline" className="text-xs">
-              {(message.confidence * 100).toFixed(0)}%
-            </Badge>
-          </div>
-        )}
-      </div>
-    );
+    addBotMessage("Payment processed successfully!", 'text');
   };
 
   return (
@@ -1528,24 +296,11 @@ const UnifiedHotelChatbot = () => {
             <Bot className="w-6 h-6 text-primary" />
             <span>Sofia - AI Hotel Concierge</span>
           </div>
-          <div className="flex items-center space-x-2">
-            {isVerified && (
-              <Badge variant="secondary" className="text-xs">
-                <CheckCircle className="w-3 h-3 mr-1" />
-                Verified Guest
-              </Badge>
-            )}
-            <Badge variant="outline" className="text-xs">
-              <Brain className="w-3 h-3 mr-1" />
-              AI Powered
-            </Badge>
-          </div>
+          <Badge variant="outline" className="text-xs">
+            <Brain className="w-3 h-3 mr-1" />
+            AI Powered
+          </Badge>
         </CardTitle>
-        {guestName && (
-          <p className="text-sm text-muted-foreground">
-            Welcome back, {guestName}! How can I assist you today?
-          </p>
-        )}
       </CardHeader>
       
       <CardContent className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -1564,7 +319,14 @@ const UnifiedHotelChatbot = () => {
               {message.sender === 'user' ? (
                 <p className="text-sm">{message.content}</p>
               ) : (
-                renderMessage(message)
+                <MessageRenderer
+                  message={message}
+                  onRoomSelection={handleRoomSelection}
+                  onMenuItemSelection={handleMenuItemSelection}
+                  onAmenityBooking={handleAmenityBooking}
+                  onQuickAction={handleQuickAction}
+                  onPaymentClick={handlePaymentClick}
+                />
               )}
               <div className={`text-xs mt-1 ${
                 message.sender === 'user' ? 'text-primary-foreground/70' : 'text-muted-foreground'
@@ -1582,7 +344,7 @@ const UnifiedHotelChatbot = () => {
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder={awaitingInput === 'booking_verification' ? "Enter your booking confirmation number..." : "Type your message..."}
+            placeholder="Type your message..."
             onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
             className="flex-1"
           />
@@ -1590,25 +352,6 @@ const UnifiedHotelChatbot = () => {
             <Send className="w-4 h-4" />
           </Button>
         </div>
-        
-        {awaitingInput === 'booking_verification' && (
-          <p className="text-xs text-muted-foreground mt-2">
-            Please enter your booking confirmation number to access personalized assistance
-          </p>
-        )}
-        
-        {currentOrder.items.length > 0 && (
-          <div className="mt-2 p-2 bg-muted rounded text-xs">
-            <strong>Current Order:</strong> {currentOrder.items.map(item => item.name).join(', ')}
-            <Button 
-              size="sm" 
-              className="ml-2" 
-              onClick={() => handlePaymentClick({ type: 'food', items: currentOrder.items })}
-            >
-              Complete Order
-            </Button>
-          </div>
-        )}
       </div>
     </Card>
   );
