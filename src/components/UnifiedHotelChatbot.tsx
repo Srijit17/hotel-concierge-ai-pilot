@@ -1,18 +1,14 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Bot, CheckCircle, Brain, Send } from 'lucide-react';
+import { Bot, Send, Brain, Zap } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { MessageRenderer, type Message } from './chatbot/MessageRenderer';
-import { 
-  detectIntent, 
-  searchFAQ, 
-  routeToModule, 
-  type SessionContext 
-} from '../lib/chatbot-ai';
+import { enhancedAI } from '../lib/enhanced-chatbot-ai';
+import { type SessionContext } from '../lib/chatbot-ai';
 import { menuItems, amenityServices } from '../lib/chatbot-data';
 
 interface Room {
@@ -24,32 +20,6 @@ interface Room {
   max_guests: number;
   image_url: string;
   available?: boolean;
-}
-
-interface GuestBooking {
-  booking_number: string;
-  guest_name: string;
-  email: string | null;
-  phone: string | null;
-  room_type: string;
-  room_number: string | null;
-  check_in: string;
-  check_out: string;
-  guests_count: number | null;
-  stay_purpose: string | null;
-  preferences: any;
-  services_used: any;
-  special_requests: string | null;
-  total_amount: number | null;
-  status: string | null;
-}
-
-interface BookingData {
-  room?: Room;
-  checkIn?: string;
-  checkOut?: string;
-  guests?: number;
-  guestName?: string;
 }
 
 interface MenuItem {
@@ -74,14 +44,8 @@ const UnifiedHotelChatbot = () => {
   // State management
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
   const [sessionId, setSessionId] = useState<string>('');
-  const [currentBooking, setCurrentBooking] = useState<BookingData>({});
-  const [currentOrder, setCurrentOrder] = useState<{items: MenuItem[], roomNumber?: string}>({items: []});
-  const [awaitingInput, setAwaitingInput] = useState<string>('');
-  const [guestName, setGuestName] = useState<string>('');
-  const [guestBooking, setGuestBooking] = useState<GuestBooking | null>(null);
-  const [isVerified, setIsVerified] = useState<boolean>(false);
-  const [userActivity, setUserActivity] = useState<string[]>([]);
   const [sessionContext, setSessionContext] = useState<SessionContext>({
     fallbackCount: 0,
     previousIntents: [],
@@ -94,7 +58,10 @@ const UnifiedHotelChatbot = () => {
   // Initialize chatbot
   useEffect(() => {
     initializeSession();
-    addBotMessage("Welcome to The Grand Luxury Hotel! I'm Sofia, your AI-powered concierge assistant. I'm here to make your stay absolutely perfect. How may I assist you today?", 'greeting-buttons');
+    addBotMessage(
+      "Welcome to The Grand Luxury Hotel! I'm Sofia, your AI-powered concierge assistant. I'm here to make your stay absolutely perfect. How may I assist you today?", 
+      'greeting-buttons'
+    );
   }, []);
 
   useEffect(() => {
@@ -123,113 +90,17 @@ const UnifiedHotelChatbot = () => {
     }
   };
 
-  const addBotMessage = (content: string, type?: string, data?: any) => {
+  const addBotMessage = (content: string, type?: string, data?: any, confidence?: number) => {
     const newMessage: Message = {
       id: Date.now().toString(),
       sender: 'bot',
       content,
       timestamp: new Date(),
       type: type as any,
-      data
+      data,
+      confidence
     };
     setMessages(prev => [...prev, newMessage]);
-  };
-
-  const handleFallback = (userText: string, confidence: number) => {
-    const fallbackCount = sessionContext.fallbackCount + 1;
-    
-    setSessionContext(prev => ({
-      ...prev,
-      fallbackCount
-    }));
-
-    if (fallbackCount === 1) {
-      return {
-        text: "I want to make sure I understand you perfectly. Could you rephrase that or tell me more specifically what you'd like help with?",
-        type: 'text' as const
-      };
-    } else {
-      return {
-        text: "I'd love to connect you with one of our helpful staff members who can assist you better.",
-        type: 'department-contacts' as const,
-        data: {
-          departments: [
-            { department: "Front Desk", phone: "+1 (555) 123-4567", hours: "24/7", description: "Check-in, reservations, general inquiries" }
-          ]
-        }
-      };
-    }
-  };
-
-  const generateResponse = (intent: string, confidence: number, entities: any, userText: string) => {
-    // Check for FAQ first
-    if (intent === 'FAQ' || confidence < 0.65) {
-      const faqResult = searchFAQ(userText);
-      if (faqResult && faqResult.confidence > 0.8) {
-        return {
-          text: faqResult.answer,
-          type: 'text' as const
-        };
-      }
-    }
-
-    // Route to appropriate module
-    const moduleResponse = routeToModule(intent, userText, entities);
-    if (moduleResponse) {
-      return moduleResponse;
-    }
-
-    if (confidence < 0.65) {
-      return handleFallback(userText, confidence);
-    }
-
-    // Update session context
-    setSessionContext(prev => ({
-      ...prev,
-      previousIntents: [...prev.previousIntents.slice(-2), intent],
-      fallbackCount: 0
-    }));
-
-    switch (intent) {
-      case 'GreetGuest':
-        return {
-          text: "Hello! Welcome to The Grand Luxury Hotel. I'm Sofia, your AI concierge assistant. How can I help you today?",
-          type: 'greeting-buttons' as const
-        };
-
-      case 'CheckRoomAvailability':
-        return {
-          text: "I'd be delighted to help you find the perfect room. Here are our available options:",
-          type: 'room-cards' as const,
-          data: {
-            rooms: [
-              { id: '1', name: 'Sea View Deluxe', type: 'deluxe', price_per_night: 349, features: ['Ocean views'], max_guests: 2, image_url: '/placeholder.svg', available: true }
-            ]
-          }
-        };
-
-      case 'RequestRoomService':
-        return {
-          text: "I'd be delighted to show you our room service menu:",
-          type: 'menu-items' as const,
-          data: {
-            items: menuItems,
-            categorized: true
-          }
-        };
-
-      case 'AskAboutAmenities':
-        return {
-          text: "Here are our world-class amenities:",
-          type: 'amenity-info' as const,
-          data: {
-            amenities: amenityServices
-          }
-        };
-
-      default:
-        return handleFallback(userText, confidence);
-    }
   };
 
   const handleSendMessage = async () => {
@@ -245,47 +116,113 @@ const UnifiedHotelChatbot = () => {
     setMessages(prev => [...prev, userMessage]);
     const userInput = input;
     setInput('');
+    setIsTyping(true);
 
-    // Detect intent and generate response
-    const { intent, confidence, entities } = detectIntent(userInput, sessionContext);
-    const response = generateResponse(intent, confidence, entities, userInput);
+    try {
+      // Get previous user messages for context
+      const previousMessages = messages
+        .filter(m => m.sender === 'user')
+        .slice(-3)
+        .map(m => m.content);
 
-    setTimeout(() => {
-      addBotMessage(response.text, response.type, response.data);
-    }, 1000);
+      // Generate response using enhanced AI
+      const response = await enhancedAI.generateResponse(
+        userInput, 
+        sessionContext, 
+        previousMessages
+      );
+
+      // Update session context
+      setSessionContext(prev => ({
+        ...prev,
+        previousIntents: [...prev.previousIntents.slice(-2), response.type || 'general'],
+        fallbackCount: response.confidence < 0.6 ? prev.fallbackCount + 1 : 0
+      }));
+
+      // Simulate short delay for natural feel
+      setTimeout(() => {
+        setIsTyping(false);
+        
+        // Handle different response types
+        if (response.data?.action === 'show_rooms') {
+          addBotMessage(response.text, 'room-cards', {
+            rooms: response.data.rooms
+          }, response.confidence);
+        } else if (response.data?.action === 'show_amenities') {
+          addBotMessage(response.text, 'amenity-info', {
+            amenities: amenityServices
+          }, response.confidence);
+        } else if (response.data?.action === 'show_menu') {
+          addBotMessage(response.text, 'menu-items', {
+            items: menuItems,
+            categorized: true
+          }, response.confidence);
+        } else {
+          addBotMessage(response.text, response.type, response.data, response.confidence);
+        }
+      }, Math.random() * 800 + 200); // 200-1000ms delay
+
+    } catch (error) {
+      console.error('Error generating response:', error);
+      setIsTyping(false);
+      addBotMessage(
+        "I apologize, but I'm having trouble processing your request right now. Let me connect you with our front desk for immediate assistance.",
+        'department-contacts',
+        {
+          departments: [
+            { 
+              department: "Front Desk", 
+              phone: "+1 (555) 123-4567", 
+              hours: "24/7", 
+              description: "General inquiries and immediate assistance" 
+            }
+          ]
+        }
+      );
+    }
   };
 
   const handleQuickAction = (action: string) => {
-    switch (action) {
-      case 'room_availability':
+    const quickActions: Record<string, () => void> = {
+      room_availability: () => {
         addBotMessage("Here are our available rooms:", 'room-cards', {
-          rooms: [{ id: '1', name: 'Sea View Deluxe', type: 'deluxe', price_per_night: 349, features: ['Ocean views'], max_guests: 2, image_url: '/placeholder.svg', available: true }]
+          rooms: [
+            { id: '1', name: 'Deluxe Room', type: 'deluxe', price_per_night: 200, features: ['City View', 'Free WiFi'], max_guests: 2, image_url: '/placeholder.svg', available: true },
+            { id: '2', name: 'Ocean View Suite', type: 'suite', price_per_night: 350, features: ['Ocean View', 'Balcony'], max_guests: 4, image_url: '/placeholder.svg', available: true }
+          ]
         });
-        break;
-      case 'room_service':
+      },
+      room_service: () => {
         addBotMessage("Here's our room service menu:", 'menu-items', { items: menuItems, categorized: true });
-        break;
-      case 'amenities':
-        addBotMessage("Here are our amenities:", 'amenity-info', { amenities: amenityServices });
-        break;
+      },
+      amenities: () => {
+        addBotMessage("Here are our world-class amenities:", 'amenity-info', { amenities: amenityServices });
+      },
+      verify_booking: () => {
+        addBotMessage("Please provide your booking confirmation number or the phone number used for the reservation, and I'll help you access your booking details.");
+      }
+    };
+
+    const actionHandler = quickActions[action];
+    if (actionHandler) {
+      actionHandler();
     }
   };
 
   const handleRoomSelection = (room: Room) => {
-    addBotMessage(`Excellent choice! The ${room.name} is perfect.`, 'text');
+    addBotMessage(`Excellent choice! The ${room.name} is perfect for your stay.`, 'text');
   };
 
   const handleMenuItemSelection = (item: MenuItem) => {
-    setCurrentOrder(prev => ({ ...prev, items: [...prev.items, item] }));
-    addBotMessage(`Added ${item.name} to your order.`, 'text');
+    addBotMessage(`Great selection! I've noted ${item.name} for your order.`, 'text');
   };
 
   const handleAmenityBooking = (amenity: AmenityService) => {
-    addBotMessage(`Great choice! ${amenity.name} has been noted.`, 'text');
+    addBotMessage(`Wonderful! ${amenity.name} has been added to your preferences.`, 'text');
   };
 
   const handlePaymentClick = (data: any) => {
-    addBotMessage("Payment processed successfully!", 'text');
+    addBotMessage("Processing your payment... Payment completed successfully!", 'text');
   };
 
   return (
@@ -296,10 +233,16 @@ const UnifiedHotelChatbot = () => {
             <Bot className="w-6 h-6 text-primary" />
             <span>Sofia - AI Hotel Concierge</span>
           </div>
-          <Badge variant="outline" className="text-xs">
-            <Brain className="w-3 h-3 mr-1" />
-            AI Powered
-          </Badge>
+          <div className="flex items-center space-x-2">
+            <Badge variant="outline" className="text-xs">
+              <Zap className="w-3 h-3 mr-1" />
+              Fast AI
+            </Badge>
+            <Badge variant="outline" className="text-xs">
+              <Brain className="w-3 h-3 mr-1" />
+              Enhanced
+            </Badge>
+          </div>
         </CardTitle>
       </CardHeader>
       
@@ -328,14 +271,35 @@ const UnifiedHotelChatbot = () => {
                   onPaymentClick={handlePaymentClick}
                 />
               )}
-              <div className={`text-xs mt-1 ${
+              <div className={`text-xs mt-1 flex items-center justify-between ${
                 message.sender === 'user' ? 'text-primary-foreground/70' : 'text-muted-foreground'
               }`}>
-                {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                <span>
+                  {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
+                {message.sender === 'bot' && message.confidence && (
+                  <Badge variant="secondary" className="text-xs ml-2">
+                    {Math.round(message.confidence * 100)}%
+                  </Badge>
+                )}
               </div>
             </div>
           </div>
         ))}
+        
+        {isTyping && (
+          <div className="flex justify-start">
+            <div className="bg-muted rounded-lg p-3 max-w-[85%]">
+              <div className="flex items-center space-x-1">
+                <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce"></div>
+                <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                <span className="text-xs text-muted-foreground ml-2">Sofia is typing...</span>
+              </div>
+            </div>
+          </div>
+        )}
+        
         <div ref={messagesEndRef} />
       </CardContent>
       
@@ -345,10 +309,15 @@ const UnifiedHotelChatbot = () => {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Type your message..."
-            onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+            onKeyPress={(e) => e.key === 'Enter' && !isTyping && handleSendMessage()}
             className="flex-1"
+            disabled={isTyping}
           />
-          <Button onClick={handleSendMessage} size="icon">
+          <Button 
+            onClick={handleSendMessage} 
+            size="icon"
+            disabled={isTyping || !input.trim()}
+          >
             <Send className="w-4 h-4" />
           </Button>
         </div>
