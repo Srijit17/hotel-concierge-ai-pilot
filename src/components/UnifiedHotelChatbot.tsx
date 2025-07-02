@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
@@ -18,6 +17,7 @@ import { ChatInput } from './chatbot/ChatInput';
 import { TypingIndicator } from './chatbot/TypingIndicator';
 import { ChatMessage } from './chatbot/ChatMessage';
 import { SessionManager } from './chatbot/SessionManager';
+import { generateCityResponse, generateHeritageResponse, generateServiceResponse, detectQueryType } from '../lib/enhanced-ai-responses';
 
 interface UserContext {
   hasBooking: boolean;
@@ -297,6 +297,47 @@ const UnifiedHotelChatbot = () => {
     setIsTyping(true);
 
     try {
+      // First check for city, heritage, or service queries
+      const queryType = detectQueryType(userInput);
+      
+      if (queryType === 'city_info') {
+        const cityResponse = generateCityResponse(userInput);
+        setTimeout(() => {
+          setIsTyping(false);
+          addBotMessage(cityResponse, 'text');
+          setTimeout(() => {
+            addDepartmentContacts();
+          }, 1000);
+        }, 1000);
+        return;
+      }
+      
+      if (queryType === 'heritage') {
+        const heritageResponse = generateHeritageResponse(userInput);
+        setTimeout(() => {
+          setIsTyping(false);
+          addBotMessage(heritageResponse, 'text');
+          setTimeout(() => {
+            addDepartmentContacts();
+          }, 1000);
+        }, 1000);
+        return;
+      }
+      
+      if (queryType === 'service_request') {
+        const serviceResponse = generateServiceResponse(userInput);
+        if (serviceResponse) {
+          setTimeout(() => {
+            setIsTyping(false);
+            addBotMessage(serviceResponse, 'text');
+            setTimeout(() => {
+              addDepartmentContacts();
+            }, 1000);
+          }, 800);
+          return;
+        }
+      }
+
       const previousMessages = messages
         .filter(m => m.sender === 'user')
         .slice(-3)
