@@ -1,11 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Bot, Send, Brain, Zap, BarChart3, Activity } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { MessageRenderer, type Message } from './chatbot/MessageRenderer';
 import { enhancedAI } from '../lib/enhanced-chatbot-ai';
@@ -18,34 +13,18 @@ import { InteractiveFeatures } from './chatbot/InteractiveFeatures';
 import { DataDrivenInsights } from './chatbot/DataDrivenInsights';
 import { InteractiveChatElements } from './chatbot/InteractiveChatElements';
 import { dataManager, type UserPreferences } from '../lib/interactive-data-manager';
+import { ChatHeader } from './chatbot/ChatHeader';
+import { ChatInput } from './chatbot/ChatInput';
+import { TypingIndicator } from './chatbot/TypingIndicator';
+import { ChatMessage } from './chatbot/ChatMessage';
+import { SessionManager } from './chatbot/SessionManager';
 
-interface Room {
-  id: string;
-  name: string;
-  type: string;
-  price_per_night: number;
-  features: string[];
-  max_guests: number;
-  image_url: string;
-  available?: boolean;
-}
-
-interface MenuItem {
-  id: string;
-  name: string;
-  price: number;
-  category: string;
-  description: string;
-}
-
-interface AmenityService {
-  id: string;
-  name: string;
-  category: string;
-  price: number;
-  duration: string;
-  description: string;
-  availability: string;
+interface UserContext {
+  hasBooking: boolean;
+  lastOrderTime?: string;
+  hasSpaBooking: boolean;
+  isLoyaltyMember: boolean;
+  timeOfDay: 'morning' | 'afternoon' | 'evening' | 'night';
 }
 
 const UnifiedHotelChatbot = () => {
@@ -67,28 +46,16 @@ const UnifiedHotelChatbot = () => {
   const [interactiveElements, setInteractiveElements] = useState<any[]>([]);
   const [sessionStartTime, setSessionStartTime] = useState<Date>(new Date());
   
-  const [userContext, setUserContext] = useState({
+  const [userContext, setUserContext] = useState<UserContext>({
     hasBooking: false,
     lastOrderTime: undefined,
     hasSpaBooking: false,
     isLoyaltyMember: false,
-    timeOfDay: 'morning' as 'morning' | 'afternoon' | 'evening' | 'night'
+    timeOfDay: 'morning'
   });
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
-
-  const updateTimeOfDay = () => {
-    const hour = new Date().getHours();
-    let timeOfDay: 'morning' | 'afternoon' | 'evening' | 'night';
-    
-    if (hour >= 6 && hour < 12) timeOfDay = 'morning';
-    else if (hour >= 12 && hour < 17) timeOfDay = 'afternoon';
-    else if (hour >= 17 && hour < 22) timeOfDay = 'evening';
-    else timeOfDay = 'night';
-    
-    setUserContext(prev => ({ ...prev, timeOfDay }));
-  };
 
   useEffect(() => {
     initializeSession();
@@ -99,7 +66,8 @@ const UnifiedHotelChatbot = () => {
       'greeting-buttons'
     );
     
-    updateTimeOfDay();
+    const timeOfDay = SessionManager.updateTimeOfDay();
+    setUserContext(prev => ({ ...prev, timeOfDay }));
     
     setTimeout(() => {
       setShowInteractiveFeatures(true);
@@ -124,21 +92,8 @@ const UnifiedHotelChatbot = () => {
   };
 
   const initializeSession = async () => {
-    try {
-      const { data: session, error } = await supabase
-        .from('sessions')
-        .insert({
-          channel: 'web_widget',
-          status: 'active'
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-      setSessionId(session.id);
-    } catch (error) {
-      console.error('Error initializing session:', error);
-    }
+    const id = await SessionManager.initializeSession();
+    setSessionId(id);
   };
 
   const addBotMessage = (content: string, type?: string, data?: any, confidence?: number) => {
@@ -286,6 +241,7 @@ const UnifiedHotelChatbot = () => {
     }
   };
 
+  // Handler functions
   const handleFeedback = (type: 'positive' | 'negative', message: string) => {
     dataManager.trackInteraction({
       type: 'feedback',
@@ -426,32 +382,10 @@ const UnifiedHotelChatbot = () => {
 
   return (
     <Card className="w-full max-w-4xl mx-auto h-[700px] flex flex-col">
-      <CardHeader className="border-b">
-        <CardTitle className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <Bot className="w-6 h-6 text-primary" />
-            <span>Sofia - Enhanced AI Concierge</span>
-          </div>
-          <div className="flex items-center space-x-2">
-            <Badge variant="outline" className="text-xs">
-              <Zap className="w-3 h-3 mr-1" />
-              Ultra Fast
-            </Badge>
-            <Badge variant="outline" className="text-xs">
-              <Brain className="w-3 h-3 mr-1" />
-              Smart AI
-            </Badge>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowInsights(!showInsights)}
-            >
-              <BarChart3 className="w-3 h-3 mr-1" />
-              Insights
-            </Button>
-          </div>
-        </CardTitle>
-      </CardHeader>
+      <ChatHeader 
+        showInsights={showInsights}
+        onToggleInsights={() => setShowInsights(!showInsights)}
+      />
       
       <CardContent className="flex-1 overflow-y-auto p-4 space-y-4">
         {showInsights && (
@@ -498,111 +432,34 @@ const UnifiedHotelChatbot = () => {
         )}
 
         {messages.map((message) => (
-          <div
+          <ChatMessage
             key={message.id}
-            className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
-          >
-            <div
-              className={`max-w-[85%] rounded-lg p-3 ${
-                message.sender === 'user'
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-muted'
-              }`}
-            >
-              {message.sender === 'user' ? (
-                <p className="text-sm">{message.content}</p>
-              ) : (
-                <MessageRenderer
-                  message={message}
-                  onRoomSelection={handleRoomSelection}
-                  onMenuItemSelection={handleMenuItemSelection}
-                  onAmenityBooking={handleAmenityBooking}
-                  onQuickAction={handleQuickAction}
-                  onPaymentClick={handlePaymentClick}
-                />
-              )}
-              <div className={`text-xs mt-1 flex items-center justify-between ${
-                message.sender === 'user' ? 'text-primary-foreground/70' : 'text-muted-foreground'
-              }`}>
-                <span>
-                  {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </span>
-                {message.sender === 'bot' && message.confidence && (
-                  <Badge variant="secondary" className="text-xs ml-2">
-                    {Math.round(message.confidence * 100)}%
-                  </Badge>
-                )}
-              </div>
-            </div>
-          </div>
+            message={message}
+            onRoomSelection={handleRoomSelection}
+            onMenuItemSelection={handleMenuItemSelection}
+            onAmenityBooking={handleAmenityBooking}
+            onQuickAction={handleQuickAction}
+            onPaymentClick={handlePaymentClick}
+          />
         ))}
         
-        {isTyping && (
-          <div className="flex justify-start">
-            <div className="bg-muted rounded-lg p-3 max-w-[85%]">
-              <div className="flex items-center space-x-1">
-                <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce"></div>
-                <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                <span className="text-xs text-muted-foreground ml-2">Sofia is thinking...</span>
-              </div>
-            </div>
-          </div>
-        )}
+        <TypingIndicator isTyping={isTyping} />
         
         <div ref={messagesEndRef} />
       </CardContent>
       
-      <div className="border-t p-4">
-        <div className="flex space-x-2">
-          <Input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Type your message..."
-            onKeyPress={(e) => e.key === 'Enter' && !isTyping && handleSendMessage()}
-            className="flex-1"
-            disabled={isTyping}
-          />
-          <Button 
-            onClick={handleSendMessage} 
-            size="icon"
-            disabled={isTyping || !input.trim()}
-          >
-            <Send className="w-4 h-4" />
-          </Button>
-        </div>
-        
-        <div className="flex flex-wrap gap-2 mt-2">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => handleQuickAction('show_faq')}
-            className="text-xs"
-          >
-            FAQ
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setShowSuggestions(!showSuggestions)}
-            className="text-xs"
-          >
-            {showSuggestions ? 'Hide' : 'Show'} Suggestions
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setShowInteractiveFeatures(!showInteractiveFeatures)}
-            className="text-xs"
-          >
-            <Activity className="w-3 h-3 mr-1" />
-            Interactive
-          </Button>
-          <Badge variant="secondary" className="text-xs">
-            {insights.sessionData.messageCount} messages
-          </Badge>
-        </div>
-      </div>
+      <ChatInput
+        input={input}
+        isTyping={isTyping}
+        onInputChange={setInput}
+        onSendMessage={handleSendMessage}
+        onQuickAction={handleQuickAction}
+        showSuggestions={showSuggestions}
+        onToggleSuggestions={() => setShowSuggestions(!showSuggestions)}
+        showInteractiveFeatures={showInteractiveFeatures}
+        onToggleInteractiveFeatures={() => setShowInteractiveFeatures(!showInteractiveFeatures)}
+        messageCount={insights.sessionData.messageCount}
+      />
     </Card>
   );
 };
