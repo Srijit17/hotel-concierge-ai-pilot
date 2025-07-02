@@ -296,8 +296,8 @@ const HotelChatbotCore = () => {
     return "I'm here to make your stay exceptional! I can help with room service, spa bookings, local recommendations, and answer any questions about our amenities. What would you like to know more about?";
   };
 
-  const generateActivityPrompts = () => {
-    const prompts = [];
+  const generateActivityPrompts = (): string[] => {
+    const prompts: string[] = [];
     
     if (userActivity.includes('room_service') && !userActivity.includes('spa')) {
       prompts.push("Since you've ordered room service, would you like to book a relaxing spa treatment to complete your in-room experience?");
