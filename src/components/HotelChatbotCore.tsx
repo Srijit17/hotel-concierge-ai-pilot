@@ -978,13 +978,13 @@ const HotelChatbotCore = () => {
     }
 
     if (message.type === 'activity-prompts' && message.data) {
-      const prompts = Array.isArray(message.data) ? message.data : [];
+      const prompts = Array.isArray(message.data) ? message.data.filter((item): item is string => typeof item === 'string') : [];
       return (
         <div className="space-y-3">
           <p className="text-sm text-gray-600 mb-3">{message.content}</p>
           <div className="space-y-2">
             {prompts.map((prompt: string, index: number) => (
-              <Card key={index} className="border border-blue-200 bg-blue-50">
+              <Card key={`prompt-${index}`} className="border border-blue-200 bg-blue-50">
                 <CardContent className="p-3">
                   <p className="text-sm text-blue-900">{prompt}</p>
                 </CardContent>
