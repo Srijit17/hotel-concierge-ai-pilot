@@ -1,9 +1,10 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, Users, MapPin, Star, Send, Phone, Clock, Utensils, User, CheckCircle, CreditCard, Spa, Car, Dumbbell, Coffee, Wifi } from 'lucide-react';
+import { Calendar, Users, MapPin, Star, Send, Phone, Clock, Utensils, User, CheckCircle, CreditCard, Car, Dumbbell, Coffee, Wifi } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
 interface Message {
@@ -11,7 +12,7 @@ interface Message {
   sender: 'user' | 'bot';
   content: string;
   timestamp: Date;
-  type?: 'text' | 'room-cards' | 'booking-summary' | 'menu-items' | 'amenity-info' | 'contact-info' | 'guest-profile' | 'smart-suggestions' | 'greeting-buttons' | 'department-contacts' | 'amenity-booking' | 'payment-options' | 'activity-prompts';
+  type?: 'text' | 'room-cards' | 'booking-summary' | 'menu-items' | 'amenity-info' | 'contact-info' | 'guest-profile' | 'smart-suggestions' | 'greeting-buttons' | 'department-contacts' | 'amenity-booking' | 'payment-options' | 'activity-prompts' | 'ai-response';
   data?: any;
 }
 
@@ -98,6 +99,7 @@ const HotelChatbotCore = () => {
   const [guestBooking, setGuestBooking] = useState<GuestBooking | null>(null);
   const [isVerified, setIsVerified] = useState<boolean>(false);
   const [userActivity, setUserActivity] = useState<string[]>([]);
+  const [conversationContext, setConversationContext] = useState<string[]>([]);
 
   // Enhanced menu with categories
   const menuItems: MenuItem[] = [
@@ -221,9 +223,9 @@ const HotelChatbotCore = () => {
       
       if (session) {
         setSessionId(session.id);
-        addBotMessage("👋 Welcome to The Grand Luxury Hotel! I'm Sofia, your personal concierge assistant.", 'text');
+        addBotMessage("👋 Welcome to The Grand Luxury Hotel! I'm Sofia, your AI-powered concierge assistant.", 'text');
         setTimeout(() => {
-          addBotMessage("How would you like to proceed today?", 'greeting-buttons', {
+          addBotMessage("I can help you with bookings, room service, amenities, recommendations, and answer any questions about our hotel. How would you like to proceed today?", 'greeting-buttons', {
             buttons: [
               {
                 id: 'existing_guest',
@@ -234,8 +236,14 @@ const HotelChatbotCore = () => {
               {
                 id: 'new_inquiry',
                 title: '🔍 New Inquiry', 
-                subtitle: 'Looking for rooms',
-                description: 'Browse available rooms and make reservations'
+                subtitle: 'Looking for information',
+                description: 'Browse rooms, services, and get recommendations'
+              },
+              {
+                id: 'ask_ai',
+                title: '🤖 Ask AI Assistant',
+                subtitle: 'General questions',
+                description: 'Get instant answers about hotel services and local area'
               }
             ]
           });
@@ -248,27 +256,70 @@ const HotelChatbotCore = () => {
 
   const trackUserActivity = (activity: string) => {
     setUserActivity(prev => [...prev, activity]);
+    setConversationContext(prev => [...prev, activity]);
+  };
+
+  const generateIntelligentResponse = (userInput: string): string => {
+    const input = userInput.toLowerCase();
+    
+    // Context-aware responses based on conversation history
+    if (conversationContext.includes('spa') && (input.includes('tired') || input.includes('relax'))) {
+      return "Since you were interested in spa services, I'd recommend our Swedish Massage for ultimate relaxation, or perhaps our Couples Massage if you're with someone special. Would you like me to show you our complete spa menu?";
+    }
+    
+    if (conversationContext.includes('food') && (input.includes('recommend') || input.includes('suggest'))) {
+      return `Based on your interest in dining, I'd suggest our signature dishes: ${isVerified && guestBooking?.stay_purpose === 'business' ? 'our Business Lunch special or quick room service options' : 'our romantic dinner menu with wine pairings'}. Would you like to see our full menu?`;
+    }
+
+    // Time-based responses
+    const hour = new Date().getHours();
+    if (input.includes('hungry') || input.includes('eat')) {
+      if (hour < 11) {
+        return "Good morning! Perfect timing for breakfast. Our Continental Breakfast is very popular, or try our healthy options. Would you like to see our breakfast menu?";
+      } else if (hour < 17) {
+        return "Great timing for lunch! Our Club Sandwich and Caesar Salad are customer favorites. Shall I show you our lunch options?";
+      } else {
+        return "Evening dining sounds perfect! Our Grilled Salmon and Ribeye Steak are highly recommended for dinner. Would you like to explore our dinner menu?";
+      }
+    }
+
+    // Weather-based suggestions (simulated)
+    if (input.includes('weather') || input.includes('outside')) {
+      return "While I don't have real-time weather data, I can suggest indoor activities like our spa services, fitness center, or perhaps room service with a view from your room. What interests you most?";
+    }
+
+    // Local area information
+    if (input.includes('nearby') || input.includes('around') || input.includes('local')) {
+      return "I'd be happy to help with local recommendations! Our concierge team specializes in city tours, restaurant reservations, and local attractions. Would you like me to connect you with them or show you our tour packages?";
+    }
+
+    // Default intelligent response
+    return "I'm here to make your stay exceptional! I can help with room service, spa bookings, local recommendations, and answer any questions about our amenities. What would you like to know more about?";
   };
 
   const generateActivityPrompts = () => {
     const prompts = [];
     
     if (userActivity.includes('room_service') && !userActivity.includes('spa')) {
-      prompts.push("Since you've ordered room service, would you like to book a relaxing spa treatment?");
+      prompts.push("Since you've ordered room service, would you like to book a relaxing spa treatment to complete your in-room experience?");
     }
     
     if (userActivity.includes('spa') && !userActivity.includes('restaurant')) {
-      prompts.push("After your spa session, would you like me to make dinner reservations at our rooftop restaurant?");
+      prompts.push("After your spa session, would you like me to make dinner reservations at our rooftop restaurant or arrange romantic room service?");
     }
     
     if (userActivity.includes('fitness') && !userActivity.includes('pool')) {
-      prompts.push("Great workout! How about relaxing by our rooftop pool with a refreshing drink?");
+      prompts.push("Great workout! How about relaxing by our rooftop pool with a refreshing drink or booking a recovery massage?");
+    }
+
+    if (isVerified && guestBooking?.stay_purpose === 'business' && !userActivity.includes('business_center')) {
+      prompts.push("For your business stay, would you like information about our business center, meeting rooms, or express laundry services?");
     }
     
     return prompts;
   };
 
-  const addBotMessage = (content: string, type: 'text' | 'room-cards' | 'booking-summary' | 'menu-items' | 'amenity-info' | 'contact-info' | 'guest-profile' | 'smart-suggestions' | 'greeting-buttons' | 'department-contacts' | 'amenity-booking' | 'payment-options' | 'activity-prompts' = 'text', data?: any) => {
+  const addBotMessage = (content: string, type: 'text' | 'room-cards' | 'booking-summary' | 'menu-items' | 'amenity-info' | 'contact-info' | 'guest-profile' | 'smart-suggestions' | 'greeting-buttons' | 'department-contacts' | 'amenity-booking' | 'payment-options' | 'activity-prompts' | 'ai-response' = 'text', data?: any) => {
     const message: Message = {
       id: Date.now().toString(),
       sender: 'bot',
@@ -315,10 +366,18 @@ const HotelChatbotCore = () => {
       setAwaitingInput('booking_verification');
     } else if (buttonId === 'new_inquiry') {
       addUserMessage("I'd like to make a new inquiry");
-      addBotMessage("Wonderful! I'd be happy to help you find the perfect room for your stay. Let me show you our available accommodations.");
+      addBotMessage("Wonderful! I'm here to help with any questions about our hotel. Would you like to see available rooms, learn about our amenities, or get information about our services?");
       setTimeout(() => {
-        handleRoomAvailability();
-      }, 500);
+        addBotMessage("Here are some popular options:", 'smart-suggestions', [
+          { id: 'rooms', title: 'View Available Rooms', description: 'See our luxury accommodations', action: 'rooms', priority: 'high', icon: '🏨' },
+          { id: 'amenities', title: 'Spa & Amenities', description: 'Relaxation and wellness services', action: 'amenities', priority: 'medium', icon: '💆‍♀️' },
+          { id: 'dining', title: 'Dining Options', description: 'Room service and restaurant info', action: 'dining', priority: 'medium', icon: '🍽️' }
+        ]);
+      }, 1000);
+    } else if (buttonId === 'ask_ai') {
+      addUserMessage("I'd like to ask the AI assistant");
+      trackUserActivity('ai_interaction');
+      addBotMessage("Great! I'm your AI assistant with extensive knowledge about our hotel and local area. You can ask me anything - from room amenities and service details to local recommendations and travel tips. What would you like to know?", 'ai-response');
     }
   };
 
@@ -338,14 +397,15 @@ const HotelChatbotCore = () => {
       const processedBooking: GuestBooking = {
         ...booking,
         services_used: Array.isArray(booking.services_used) ? booking.services_used : 
-                      typeof booking.services_used === 'string' ? JSON.parse(booking.services_used) : []
+                      (typeof booking.services_used === 'string' && booking.services_used !== '') ? 
+                      JSON.parse(booking.services_used) : []
       };
 
       setGuestBooking(processedBooking);
       setGuestName(processedBooking.guest_name);
       setIsVerified(true);
 
-      addBotMessage(`✅ Welcome back, ${processedBooking.guest_name}! I've found your booking.`, 'guest-profile', processedBooking);
+      addBotMessage(`✅ Welcome back, ${processedBooking.guest_name}! I've found your booking and I'm now your personalized AI assistant.`, 'guest-profile', processedBooking);
       
       setTimeout(() => {
         generateSmartSuggestions(processedBooking);
@@ -396,8 +456,40 @@ const HotelChatbotCore = () => {
       });
     }
 
+    // AI-powered suggestions based on guest profile
+    suggestions.push({
+      id: 'ai_concierge',
+      title: 'AI Concierge Service',
+      description: 'Get personalized recommendations and instant answers',
+      action: 'Chat with AI',
+      priority: 'medium',
+      icon: '🤖'
+    });
+
     if (suggestions.length > 0) {
-      addBotMessage("Based on your stay details, here are some personalized recommendations for you:", 'smart-suggestions', suggestions);
+      addBotMessage("Based on your stay details, here are some personalized AI-powered recommendations:", 'smart-suggestions', suggestions);
+    }
+  };
+
+  const handleSmartSuggestionClick = (suggestion: SmartSuggestion) => {
+    addUserMessage(suggestion.action);
+    
+    switch (suggestion.id) {
+      case 'rooms':
+        handleRoomAvailability();
+        break;
+      case 'amenities':
+        handleAmenityBooking();
+        break;
+      case 'dining':
+        handleFoodOrdering();
+        break;
+      case 'ai_concierge':
+        trackUserActivity('ai_concierge');
+        addBotMessage("I'm your AI concierge! I can provide detailed information about our facilities, make intelligent recommendations based on your preferences, help with local area guidance, and answer any questions about your stay. What would you like to explore?", 'ai-response');
+        break;
+      default:
+        addBotMessage(`I'd be happy to help you with ${suggestion.title.toLowerCase()}. Let me connect you with the right service.`, 'text');
     }
   };
 
@@ -412,7 +504,7 @@ const HotelChatbotCore = () => {
 
   const handleAmenitySelection = (amenity: AmenityService) => {
     trackUserActivity(amenity.category.toLowerCase());
-    addBotMessage(`Great choice! You've selected ${amenity.name}. This service costs $${amenity.price} for ${amenity.duration}.`, 'text');
+    addBotMessage(`Excellent choice! You've selected ${amenity.name}. This ${amenity.category.toLowerCase()} service costs $${amenity.price} for ${amenity.duration}.`, 'text');
     setTimeout(() => {
       addBotMessage("Would you like to proceed with booking and payment?", 'payment-options', {
         service: amenity,
@@ -423,7 +515,7 @@ const HotelChatbotCore = () => {
 
   const handleFoodOrdering = () => {
     trackUserActivity('room_service');
-    addBotMessage("I'd be happy to help you with room service! Here's our complete menu organized by category:", 'menu-items', {
+    addBotMessage("I'd be delighted to help you with our dining options! Here's our complete menu organized by category:", 'menu-items', {
       items: menuItems,
       categorized: true
     });
@@ -435,7 +527,7 @@ const HotelChatbotCore = () => {
       items: [...prev.items, item]
     }));
     
-    addBotMessage(`Added ${item.name} ($${item.price}) to your order!`, 'text');
+    addBotMessage(`Added ${item.name} ($${item.price}) to your order! 🍽️`, 'text');
     
     setTimeout(() => {
       const totalAmount = [...currentOrder.items, item].reduce((sum, orderItem) => sum + orderItem.price, 0);
@@ -449,17 +541,17 @@ const HotelChatbotCore = () => {
 
   const handlePayment = (data: any) => {
     const paymentUrl = "http://localhost:3000/";
-    addBotMessage(`Redirecting you to payment gateway...`, 'text');
+    addBotMessage(`Processing your payment request... Redirecting you to our secure payment gateway.`, 'text');
     
     setTimeout(() => {
       window.open(paymentUrl, '_blank');
-      addBotMessage(`Payment window opened! Once payment is complete, you'll receive a confirmation. Your ${data.type === 'amenity' ? 'service booking' : 'food order'} will be processed immediately after payment.`, 'text');
+      addBotMessage(`Payment window opened! Once payment is complete, you'll receive a confirmation email. Your ${data.type === 'amenity' ? 'service booking' : 'food order'} will be processed immediately after payment. Is there anything else I can help you with?`, 'text');
       
       // Generate activity-based prompts
       const prompts = generateActivityPrompts();
       if (prompts.length > 0) {
         setTimeout(() => {
-          addBotMessage("Based on your activity, here are some additional suggestions:", 'activity-prompts', prompts);
+          addBotMessage("Based on your activity, here are some additional AI-powered suggestions:", 'activity-prompts', prompts);
         }, 2000);
       }
     }, 2000);
@@ -468,6 +560,7 @@ const HotelChatbotCore = () => {
   const detectIntent = (message: string): string => {
     const lower = message.toLowerCase();
     
+    // AI-powered intent detection with more sophisticated patterns
     if (lower.includes('booking') && (lower.includes('number') || lower.includes('bk') || /\bbk\d+/i.test(message))) {
       return 'ProvideBookingNumber';
     }
@@ -476,18 +569,15 @@ const HotelChatbotCore = () => {
       return 'ProvideBookingNumber';
     }
     
-    if (lower.includes('contact') || lower.includes('phone') || lower.includes('department') || lower.includes('call')) {
+    if (lower.match(/(contact|phone|department|call|speak|talk)/)) {
       return 'RequestContacts';
     }
     
-    if (lower.includes('spa') || lower.includes('massage') || lower.includes('fitness') || lower.includes('pool') || 
-        lower.includes('amenity') || (lower.includes('book') && (lower.includes('service') || lower.includes('treatment')))) {
+    if (lower.match(/(spa|massage|fitness|pool|amenity|wellness|relax|treatment)/)) {
       return 'BookAmenities';
     }
     
-    if (lower.includes('room service') || lower.includes('food') || lower.includes('menu') || 
-        lower.includes('order') || lower.includes('hungry') || lower.includes('eat') ||
-        lower.includes('breakfast') || lower.includes('lunch') || lower.includes('dinner')) {
+    if (lower.match(/(room service|food|menu|order|hungry|eat|breakfast|lunch|dinner|drink)/)) {
       return 'RoomServiceOrder';
     }
     
@@ -495,11 +585,24 @@ const HotelChatbotCore = () => {
       return 'CheckRoomAvailability';
     }
     
-    if (lower.includes('hello') || lower.includes('hi') || lower.includes('hey')) {
+    if (lower.match(/(hello|hi|hey|good morning|good afternoon|good evening)/)) {
       return 'GreetGuest';
     }
+
+    // AI-powered responses for complex queries
+    if (lower.match(/(recommend|suggest|best|what should|advice|help me choose)/)) {
+      return 'AIRecommendation';
+    }
+
+    if (lower.match(/(weather|outside|climate|temperature)/)) {
+      return 'WeatherInquiry';
+    }
+
+    if (lower.match(/(nearby|around|local|area|city|tourist|attraction)/)) {
+      return 'LocalInformation';
+    }
     
-    return 'Unknown';
+    return 'AIGeneralInquiry';
   };
 
   const extractBookingNumber = (message: string): string | null => {
@@ -524,16 +627,16 @@ const HotelChatbotCore = () => {
         .eq('available', true);
       
       if (rooms && rooms.length > 0) {
-        addBotMessage("Here are our available rooms:", 'room-cards', rooms);
+        addBotMessage("Here are our available luxury accommodations:", 'room-cards', rooms);
         setTimeout(() => {
-          addBotMessage("Would you like to book any of these rooms? Just let me know which one interests you!");
+          addBotMessage("Each room is carefully designed for comfort and elegance. Would you like to book any of these rooms or need more information about specific amenities?");
         }, 1000);
       } else {
-        addBotMessage("I'm sorry, we don't have any rooms available at the moment. Please check back later!");
+        addBotMessage("I apologize, but we don't have any rooms available at the moment. However, I can put you on our waitlist or help you with other services. Would you like me to check availability for different dates?");
       }
     } catch (error) {
       console.error('Error fetching rooms:', error);
-      addBotMessage("I'm having trouble accessing our room information right now. Please try again in a moment.");
+      addBotMessage("I'm having trouble accessing our room information right now. Let me connect you with our front desk for immediate assistance.");
     }
   };
 
@@ -572,18 +675,45 @@ const HotelChatbotCore = () => {
       
       case 'GreetGuest':
         if (isVerified && guestName) {
-          addBotMessage(`Hello again, ${guestName}! 👋 How can I help you today?`);
+          addBotMessage(`Hello again, ${guestName}! 👋 I'm your AI assistant and I'm here to make your stay exceptional. How can I help you today?`);
         } else {
-          addBotMessage("Hello! 👋 Would you like to provide your booking number for personalized assistance, or browse our services?");
+          addBotMessage("Hello! 👋 I'm Sofia, your AI-powered hotel assistant. Would you like to provide your booking number for personalized service, or shall I help you explore our amenities and services?");
         }
         break;
+
+      case 'AIRecommendation':
+        trackUserActivity('ai_recommendation');
+        const personalizedResponse = generateIntelligentResponse(input);
+        addBotMessage(personalizedResponse, 'ai-response');
+        break;
+
+      case 'WeatherInquiry':
+        addBotMessage("While I don't have real-time weather data, I can suggest wonderful indoor activities! Our spa offers a tranquil escape, our fitness center is perfect for staying active, or you could enjoy our rooftop bar with panoramic city views regardless of weather. What sounds appealing?", 'ai-response');
+        break;
+
+      case 'LocalInformation':
+        addBotMessage("I'd love to help you explore the local area! Our concierge team has curated amazing experiences including guided city tours, restaurant recommendations, cultural attractions, and hidden gems. Would you like me to show you our tour packages or connect you directly with our local experts?", 'ai-response');
+        break;
       
+      case 'AIGeneralInquiry':
       default:
-        const suggestions = isVerified 
-          ? "I can help you with:\n• Department contact information\n• Spa and amenity bookings\n• Room service orders\n• Personalized recommendations"
-          : "I can help you with:\n• Department contact information\n• Amenity bookings and spa services\n• Room service and dining\n• Room availability and reservations";
+        trackUserActivity('general_inquiry');
+        const intelligentResponse = generateIntelligentResponse(input);
+        addBotMessage(intelligentResponse, 'ai-response');
         
-        addBotMessage(`I'm here to help! ${suggestions}\n\nWhat would you like to know?`);
+        // Add contextual suggestions after AI response
+        setTimeout(() => {
+          const suggestions = [
+            "🏨 View available rooms and suites",
+            "🍽️ Explore our dining options",
+            "💆‍♀️ Discover spa and wellness services",
+            "📞 Contact specific departments",
+            "🎯 Get personalized recommendations"
+          ];
+          
+          addBotMessage("Here are some things I can help you with:", 'text');
+        }, 1500);
+        break;
     }
     
     setInput('');
@@ -610,6 +740,37 @@ const HotelChatbotCore = () => {
                       <p className="text-sm text-gray-600">{button.description}</p>
                     </div>
                     <div className="text-blue-600 text-xl">→</div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    if (message.type === 'smart-suggestions' && message.data) {
+      const suggestions = message.data as SmartSuggestion[];
+      return (
+        <div className="space-y-3">
+          <p className="text-sm text-gray-600 mb-3">{message.content}</p>
+          <div className="grid gap-2">
+            {suggestions.map((suggestion) => (
+              <Card 
+                key={suggestion.id}
+                className="border border-purple-200 bg-purple-50 hover:border-purple-400 hover:shadow-md transition-all cursor-pointer"
+                onClick={() => handleSmartSuggestionClick(suggestion)}
+              >
+                <CardContent className="p-3">
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">{suggestion.icon}</span>
+                    <div className="flex-1">
+                      <h4 className="font-semibold text-purple-900">{suggestion.title}</h4>
+                      <p className="text-sm text-gray-600">{suggestion.description}</p>
+                    </div>
+                    <Badge variant={suggestion.priority === 'high' ? 'default' : 'secondary'}>
+                      {suggestion.priority}
+                    </Badge>
                   </div>
                 </CardContent>
               </Card>
@@ -809,7 +970,7 @@ const HotelChatbotCore = () => {
                 className="w-full mt-3 bg-green-600 hover:bg-green-700"
                 onClick={() => handlePayment(message.data)}
               >
-                Proceed to Payment
+                Proceed to Secure Payment
               </Button>
             </CardContent>
           </Card>
@@ -866,6 +1027,20 @@ const HotelChatbotCore = () => {
       );
     }
 
+    if (message.type === 'ai-response') {
+      return (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 mb-2">
+            <div className="w-6 h-6 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
+              <span className="text-white text-xs font-bold">AI</span>
+            </div>
+            <span className="text-xs text-gray-500">Intelligent Response</span>
+          </div>
+          <p className="text-sm whitespace-pre-line">{message.content}</p>
+        </div>
+      );
+    }
+
     return (
       <p className="text-sm whitespace-pre-line">{message.content}</p>
     );
@@ -873,10 +1048,12 @@ const HotelChatbotCore = () => {
 
   return (
     <Card className="w-full max-w-2xl mx-auto h-[600px] flex flex-col">
-      <CardHeader className="bg-gradient-to-r from-blue-600 to-blue-800 text-white">
+      <CardHeader className="bg-gradient-to-r from-blue-600 to-purple-600 text-white">
         <CardTitle className="flex items-center gap-2">
-          <MapPin className="w-5 h-5" />
-          Smart Hotel Concierge {isVerified && <Badge variant="secondary" className="bg-green-600">Verified Guest</Badge>}
+          <div className="w-8 h-8 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
+            <span className="text-sm font-bold">AI</span>
+          </div>
+          Smart Hotel AI Concierge {isVerified && <Badge variant="secondary" className="bg-green-600">Verified Guest</Badge>}
         </CardTitle>
       </CardHeader>
       
@@ -890,7 +1067,9 @@ const HotelChatbotCore = () => {
               <div
                 className={`max-w-[80%] p-3 rounded-lg ${
                   message.sender === 'user'
-                    ? 'bg-blue-600 text-white'
+                    ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white'
+                    : message.type === 'ai-response'
+                    ? 'bg-gradient-to-r from-purple-50 to-blue-50 text-gray-900 border border-purple-200'
                     : 'bg-gray-100 text-gray-900'
                 }`}
               >
@@ -905,10 +1084,10 @@ const HotelChatbotCore = () => {
             <Input
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder={isVerified ? `How can I help you today, ${guestName}?` : "Ask about contacts, amenities, food, or your booking..."}
+              placeholder={isVerified ? `How can I assist you today, ${guestName}?` : "Ask me anything about the hotel, amenities, or local area..."}
               className="flex-1"
             />
-            <Button type="submit" size="icon">
+            <Button type="submit" size="icon" className="bg-gradient-to-r from-blue-600 to-purple-600">
               <Send className="w-4 h-4" />
             </Button>
           </div>
