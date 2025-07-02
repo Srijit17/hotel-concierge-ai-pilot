@@ -617,6 +617,11 @@ const UnifiedHotelChatbot = () => {
 
   const insights = dataManager.getRealTimeInsights();
 
+  const handleFAQPromptSelect = (prompt: string) => {
+    processUserMessage(prompt);
+    setShowFAQPrompts(false);
+  };
+
   return (
     <Card className="w-full max-w-4xl mx-auto h-[700px] flex flex-col">
       <ChatHeader 
