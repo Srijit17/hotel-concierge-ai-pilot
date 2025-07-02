@@ -1,13 +1,13 @@
 import React from 'react';
-import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { format } from 'date-fns';
-import { CalendarIcon, Users, Phone, Mail, MessageSquare, Clock, Star, CreditCard } from 'lucide-react';
+import { CalendarIcon, Users, MapPin, Star, Phone, Clock, Utensils, User, CheckCircle, CreditCard, Car, Dumbbell, Coffee, Wifi } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export interface Message {
@@ -15,7 +15,7 @@ export interface Message {
   sender: 'user' | 'bot';
   content: string;
   timestamp: Date;
-  type?: 'text' | 'greeting-buttons' | 'service-options' | 'room-cards' | 'booking-form' | 'booking-confirmation' | 'post-booking-services' | 'menu-items' | 'amenity-info' | 'department-contacts' | 'spa-suggestion' | 'spa-amenities' | 'spa-booking' | 'spa-time-slots' | 'spa-payment' | 'order-options';
+  type?: 'text' | 'room-cards' | 'booking-summary' | 'menu-items' | 'amenity-info' | 'contact-info' | 'guest-profile' | 'smart-suggestions' | 'greeting-buttons' | 'department-contacts' | 'amenity-booking' | 'payment-options' | 'activity-prompts' | 'ai-response' | 'booking-form' | 'booking-confirmation' | 'post-booking-services' | 'spa-suggestion' | 'spa-amenities' | 'spa-booking' | 'spa-time-slots' | 'spa-payment' | 'service-options' | 'order-options';
   data?: any;
   confidence?: number;
 }
@@ -247,18 +247,19 @@ export const MessageRenderer: React.FC<MessageRendererProps> = ({
     );
   }
 
-  if (message.type === 'spa-suggestion' && message.data?.suggestedActions) {
+  if (message.type === 'spa-suggestion' && message.data) {
+    const { suggestedActions } = message.data;
     return (
       <div className="space-y-3">
-        <p className="text-sm mb-4">{message.content}</p>
-        <div className="grid grid-cols-2 gap-2">
-          {message.data.suggestedActions.map((action: any, index: number) => (
+        <p className="text-sm text-gray-600 mb-3">{message.content}</p>
+        <div className="flex flex-wrap gap-2">
+          {suggestedActions.map((actionItem: any, index: number) => (
             <Button
               key={index}
-              onClick={() => onQuickAction(action.action)}
-              className="bg-purple-600 hover:bg-purple-700 text-white text-xs p-2 h-auto"
+              onClick={() => onQuickAction(actionItem.action)}
+              className="bg-purple-600 hover:bg-purple-700 text-white text-sm px-4 py-2"
             >
-              {action.label}
+              {actionItem.label}
             </Button>
           ))}
         </div>
