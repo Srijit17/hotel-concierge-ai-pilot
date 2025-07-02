@@ -63,6 +63,66 @@ export type Database = {
           },
         ]
       }
+      guest_bookings: {
+        Row: {
+          booking_number: string
+          check_in: string
+          check_out: string
+          created_at: string | null
+          email: string | null
+          guest_name: string
+          guests_count: number | null
+          phone: string | null
+          preferences: Json | null
+          room_number: string | null
+          room_type: string
+          services_used: Json | null
+          special_requests: string | null
+          status: string | null
+          stay_purpose: string | null
+          total_amount: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          booking_number: string
+          check_in: string
+          check_out: string
+          created_at?: string | null
+          email?: string | null
+          guest_name: string
+          guests_count?: number | null
+          phone?: string | null
+          preferences?: Json | null
+          room_number?: string | null
+          room_type: string
+          services_used?: Json | null
+          special_requests?: string | null
+          status?: string | null
+          stay_purpose?: string | null
+          total_amount?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          booking_number?: string
+          check_in?: string
+          check_out?: string
+          created_at?: string | null
+          email?: string | null
+          guest_name?: string
+          guests_count?: number | null
+          phone?: string | null
+          preferences?: Json | null
+          room_number?: string | null
+          room_type?: string
+          services_used?: Json | null
+          special_requests?: string | null
+          status?: string | null
+          stay_purpose?: string | null
+          total_amount?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       messages: {
         Row: {
           confidence: number | null
