@@ -16,7 +16,7 @@ interface Message {
   sender: 'user' | 'bot';
   content: string;
   timestamp: Date;
-  type?: 'text' | 'room-cards' | 'booking-summary' | 'menu-items' | 'amenity-info' | 'contact-info' | 'guest-profile' | 'smart-suggestions' | 'greeting-buttons' | 'department-contacts' | 'amenity-booking' | 'payment-options' | 'activity-prompts' | 'ai-response';
+  type?: 'text' | 'room-cards' | 'booking-summary' | 'menu-items' | 'amenity-info' | 'contact-info' | 'guest-profile' | 'smart-suggestions' | 'greeting-buttons' | 'department-contacts' | 'amenity-booking' | 'payment-options' | 'activity-prompts' | 'ai-response' | 'booking-modification' | 'payment-summary' | 'order-modification';
   data?: any;
   intent?: string;
   confidence?: number;
@@ -90,67 +90,193 @@ interface SessionContext {
   currentBooking?: any;
 }
 
-// Advanced Intent Training Data
+// Enhanced Intent Training Data with Spell Correction
 const intentTrainingData = {
   'GreetGuest': {
-    patterns: ['hello', 'hi', 'hey', 'good morning', 'good evening', 'good afternoon', 'greetings', 'good day'],
+    patterns: ['hello', 'hi', 'hey', 'good morning', 'good evening', 'good afternoon', 'greetings', 'good day', 'helo', 'hii', 'gud morning'],
     confidence: 0.95,
-    weight: 1
+    weight: 1,
+    module: 'general'
   },
   'CheckRoomAvailability': {
-    patterns: ['room', 'available', 'vacancy', 'free', 'tonight', 'tomorrow', 'weekend', 'suite', 'king', 'queen', 'double', 'single', 'view', 'balcony', 'ocean', 'check availability', 'any rooms', 'book', 'reserve'],
+    patterns: ['room', 'available', 'vacancy', 'free', 'tonight', 'tomorrow', 'weekend', 'suite', 'king', 'queen', 'double', 'single', 'view', 'balcony', 'ocean', 'check availability', 'any rooms', 'book', 'reserve', 'availabel', 'rom', 'sute'],
     confidence: 0.92,
-    weight: 2
+    weight: 2,
+    module: 'booking'
   },
   'BookRoom': {
-    patterns: ['book', 'reserve', 'reservation', 'confirm booking', 'take it', 'yes book', 'proceed', 'confirm', 'make reservation', 'i want', 'ill take'],
+    patterns: ['book', 'reserve', 'reservation', 'confirm booking', 'take it', 'yes book', 'proceed', 'confirm', 'make reservation', 'i want', 'ill take', 'bok', 'resrve', 'reservaton'],
     confidence: 0.94,
-    weight: 3
+    weight: 3,
+    module: 'booking'
+  },
+  'ViewBooking': {
+    patterns: ['my booking', 'booking details', 'reservation details', 'booking info', 'check booking', 'view booking', 'booking status', 'my reservation', 'boking', 'bokking'],
+    confidence: 0.93,
+    weight: 3,
+    module: 'booking'
+  },
+  'ModifyBooking': {
+    patterns: ['change booking', 'modify reservation', 'update booking', 'edit reservation', 'change dates', 'modify dates', 'chaneg', 'modfy'],
+    confidence: 0.91,
+    weight: 3,
+    module: 'booking'
   },
   'RequestRoomService': {
-    patterns: ['room service', 'food', 'order', 'breakfast', 'lunch', 'dinner', 'menu', 'hungry', 'eat', 'drink', 'coffee', 'tea', 'sandwich', 'meal', 'deliver'],
+    patterns: ['room service', 'food', 'order', 'breakfast', 'lunch', 'dinner', 'menu', 'hungry', 'eat', 'drink', 'coffee', 'tea', 'sandwich', 'meal', 'deliver', 'fodr', 'manu', 'hungri', 'brekfast'],
     confidence: 0.90,
-    weight: 2
+    weight: 2,
+    module: 'food'
+  },
+  'ModifyFoodOrder': {
+    patterns: ['change order', 'modify order', 'cancel order', 'add to order', 'remove from order', 'edit order', 'update order', 'chaneg order', 'modfy order'],
+    confidence: 0.88,
+    weight: 3,
+    module: 'food'
   },
   'AskAboutAmenities': {
-    patterns: ['gym', 'pool', 'spa', 'amenities', 'facilities', 'wifi', 'fitness', 'swimming', 'restaurant', 'bar', 'parking', 'concierge', 'business center', 'laundry', 'dry cleaning'],
+    patterns: ['gym', 'pool', 'spa', 'amenities', 'facilities', 'wifi', 'fitness', 'swimming', 'restaurant', 'bar', 'parking', 'concierge', 'business center', 'laundry', 'dry cleaning', 'amnities', 'facilitis', 'swiming'],
     confidence: 0.88,
-    weight: 2
+    weight: 2,
+    module: 'amenity'
+  },
+  'AddAmenity': {
+    patterns: ['add amenity', 'book spa', 'book massage', 'reserve gym', 'add service', 'book service', 'ad amenity', 'bok spa', 'masage'],
+    confidence: 0.89,
+    weight: 3,
+    module: 'amenity'
   },
   'RequestLateCheckout': {
-    patterns: ['late checkout', 'extend', 'checkout time', 'stay longer', 'more time', 'check out later', 'until', 'extra hours'],
+    patterns: ['late checkout', 'extend', 'checkout time', 'stay longer', 'more time', 'check out later', 'until', 'extra hours', 'lat checkout', 'extnd'],
     confidence: 0.87,
-    weight: 3
+    weight: 3,
+    module: 'booking'
   },
   'CancelReservation': {
-    patterns: ['cancel', 'cancellation', 'remove booking', 'delete reservation', 'cant make it', 'need to cancel', 'cancel my'],
+    patterns: ['cancel', 'cancellation', 'remove booking', 'delete reservation', 'cant make it', 'need to cancel', 'cancel my', 'cansel', 'cancelation'],
     confidence: 0.95,
-    weight: 4
+    weight: 4,
+    module: 'booking'
   },
-  'ChangeReservation': {
-    patterns: ['change', 'modify', 'update', 'reschedule', 'different date', 'edit booking', 'alter reservation'],
-    confidence: 0.89,
-    weight: 3
+  'PaymentInquiry': {
+    patterns: ['payment', 'pay', 'bill', 'cost', 'price', 'total', 'charge', 'invoice', 'receipt', 'paymnt', 'bil', 'pric'],
+    confidence: 0.90,
+    weight: 3,
+    module: 'payment'
+  },
+  'FAQ': {
+    patterns: ['policy', 'rules', 'pet', 'smoking', 'cancellation policy', 'check-in time', 'check-out time', 'parking', 'dress code', 'children', 'age limit', 'wifi password', 'breakfast time', 'polcy', 'ruls'],
+    confidence: 0.86,
+    weight: 2,
+    module: 'faq'
   },
   'Complaints': {
-    patterns: ['problem', 'issue', 'broken', 'not working', 'dirty', 'noisy', 'cold', 'hot', 'complaint', 'wrong', 'bad', 'terrible', 'awful', 'disappointed'],
+    patterns: ['problem', 'issue', 'broken', 'not working', 'dirty', 'noisy', 'cold', 'hot', 'complaint', 'wrong', 'bad', 'terrible', 'awful', 'disappointed', 'problm', 'isue', 'brokn'],
     confidence: 0.91,
-    weight: 4
-  },
-  'HotelPolicyInquiry': {
-    patterns: ['policy', 'rules', 'pet', 'smoking', 'cancellation policy', 'check-in time', 'check-out time', 'parking', 'dress code', 'children', 'age limit'],
-    confidence: 0.86,
-    weight: 2
+    weight: 4,
+    module: 'support'
   },
   'SpeakToHuman': {
-    patterns: ['human', 'person', 'agent', 'staff', 'concierge', 'manager', 'help', 'talk to someone', 'real person', 'transfer', 'connect'],
+    patterns: ['human', 'person', 'agent', 'staff', 'concierge', 'manager', 'help', 'talk to someone', 'real person', 'transfer', 'connect', 'huamn', 'persn', 'manger'],
     confidence: 0.93,
-    weight: 3
+    weight: 3,
+    module: 'support'
   },
   'ThankYou': {
-    patterns: ['thank', 'thanks', 'appreciate', 'grateful', 'perfect', 'great', 'awesome', 'wonderful', 'excellent'],
+    patterns: ['thank', 'thanks', 'appreciate', 'grateful', 'perfect', 'great', 'awesome', 'wonderful', 'excellent', 'thnk', 'thanx', 'grat'],
     confidence: 0.85,
-    weight: 1
+    weight: 1,
+    module: 'general'
+  }
+};
+
+// FAQ Database
+const faqDatabase = {
+  'check-in': {
+    question: 'What time is check-in?',
+    answer: 'Check-in is from 3:00 PM onwards. Early check-in is available subject to room availability.',
+    keywords: ['check-in', 'checkin', 'arrival', 'early check-in']
+  },
+  'check-out': {
+    question: 'What time is check-out?',
+    answer: 'Check-out is until 11:00 AM. Late check-out can be arranged for an additional fee.',
+    keywords: ['check-out', 'checkout', 'departure', 'late checkout']
+  },
+  'cancellation': {
+    question: 'What is the cancellation policy?',
+    answer: 'Free cancellation up to 24 hours before check-in. Cancellations within 24 hours incur a one-night charge.',
+    keywords: ['cancel', 'cancellation', 'refund', 'policy']
+  },
+  'wifi': {
+    question: 'Is WiFi available?',
+    answer: 'Complimentary high-speed WiFi is available throughout the hotel. Password: GrandLuxury2024',
+    keywords: ['wifi', 'internet', 'password', 'connection']
+  },
+  'breakfast': {
+    question: 'What are breakfast hours?',
+    answer: 'Breakfast is served from 6:30 AM to 10:30 AM daily. Continental and à la carte options available.',
+    keywords: ['breakfast', 'dining', 'hours', 'morning']
+  },
+  'parking': {
+    question: 'Is parking available?',
+    answer: 'Complimentary valet parking is available for all guests. Self-parking is also available.',
+    keywords: ['parking', 'valet', 'car', 'vehicle']
+  },
+  'pets': {
+    question: 'Are pets allowed?',
+    answer: 'We welcome pets with advance notice. Pet fee is $50 per night. Service animals are always welcome.',
+    keywords: ['pets', 'dogs', 'cats', 'animals', 'pet policy']
+  },
+  'smoking': {
+    question: 'Is smoking allowed?',
+    answer: 'Our hotel is completely non-smoking. Designated smoking areas are available on the terrace.',
+    keywords: ['smoking', 'smoke', 'cigarettes', 'non-smoking']
+  }
+};
+
+// Department Contact Information
+const departmentContacts = {
+  'booking': {
+    name: 'Reservations & Booking',
+    phone: '+1 (555) 123-4567',
+    email: 'reservations@grandluxury.com',
+    hours: '24/7',
+    description: 'Room bookings, modifications, cancellations'
+  },
+  'food': {
+    name: 'Room Service & Dining',
+    phone: '+1 (555) 123-4568',
+    email: 'roomservice@grandluxury.com',
+    hours: '24/7',
+    description: 'Food orders, dietary requirements, dining reservations'
+  },
+  'amenity': {
+    name: 'Spa & Amenities',
+    phone: '+1 (555) 123-4569',
+    email: 'spa@grandluxury.com',
+    hours: '6 AM - 10 PM',
+    description: 'Spa bookings, fitness center, pool services'
+  },
+  'payment': {
+    name: 'Billing & Payments',
+    phone: '+1 (555) 123-4570',
+    email: 'billing@grandluxury.com',
+    hours: '9 AM - 6 PM',
+    description: 'Payment issues, billing inquiries, refunds'
+  },
+  'support': {
+    name: 'Guest Relations',
+    phone: '+1 (555) 123-4571',
+    email: 'support@grandluxury.com',
+    hours: '24/7',
+    description: 'General assistance, complaints, special requests'
+  },
+  'concierge': {
+    name: 'Concierge Services',
+    phone: '+1 (555) 123-4572',
+    email: 'concierge@grandluxury.com',
+    hours: '6 AM - 11 PM',
+    description: 'Local recommendations, transportation, event planning'
   }
 };
 
@@ -239,14 +365,27 @@ const UnifiedHotelChatbot = () => {
     }
   };
 
-  // Advanced intent detection with training data integration
+  // Enhanced intent detection with spell correction and fuzzy matching
   const detectIntent = (text: string): { intent: string; confidence: number; entities: any } => {
-    const lowerText = text.toLowerCase();
+    // First apply spell correction
+    const { correctedText } = correctSpellingAndDetectIntent(text);
+    const lowerText = correctedText.toLowerCase();
     let bestMatch = { intent: 'fallback', confidence: 0.1, entities: {} };
 
     // Use training data for intent detection
     for (const [intentName, intentData] of Object.entries(intentTrainingData)) {
-      const matches = intentData.patterns.filter((pattern: string) => lowerText.includes(pattern));
+      const matches = intentData.patterns.filter((pattern: string) => {
+        // Exact match
+        if (lowerText.includes(pattern)) return true;
+        
+        // Fuzzy match for common typos
+        const words = lowerText.split(' ');
+        return words.some(word => {
+          const distance = levenshteinDistance(word, pattern);
+          return distance <= 2 && word.length > 3; // Allow 2 character differences for words longer than 3
+        });
+      });
+      
       if (matches.length > 0) {
         const baseScore = matches.length * intentData.weight * 0.1;
         const confidence = Math.min(intentData.confidence + baseScore, 0.98);
@@ -255,7 +394,7 @@ const UnifiedHotelChatbot = () => {
           bestMatch = {
             intent: intentName,
             confidence,
-            entities: extractEntities(text, intentName)
+            entities: extractEntities(correctedText, intentName)
           };
         }
       }
@@ -266,7 +405,7 @@ const UnifiedHotelChatbot = () => {
       const lastIntent = sessionContext.previousIntents[sessionContext.previousIntents.length - 1];
       
       if (lowerText.includes('price') || lowerText.includes('cost') || lowerText.includes('how much')) {
-        return { intent: lastIntent, confidence: 0.85, entities: { followUp: 'pricing' } };
+        return { intent: 'PaymentInquiry', confidence: 0.85, entities: { followUp: 'pricing', relatedIntent: lastIntent } };
       }
       if (lowerText.match(/^(yes|yeah|ok|sure|sounds good|perfect)$/i)) {
         return { intent: lastIntent, confidence: 0.90, entities: { confirmation: true } };
@@ -277,6 +416,35 @@ const UnifiedHotelChatbot = () => {
     }
 
     return bestMatch;
+  };
+
+  // Levenshtein distance for fuzzy matching
+  const levenshteinDistance = (str1: string, str2: string): number => {
+    const matrix = [];
+    
+    for (let i = 0; i <= str2.length; i++) {
+      matrix[i] = [i];
+    }
+    
+    for (let j = 0; j <= str1.length; j++) {
+      matrix[0][j] = j;
+    }
+    
+    for (let i = 1; i <= str2.length; i++) {
+      for (let j = 1; j <= str1.length; j++) {
+        if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
+          matrix[i][j] = matrix[i - 1][j - 1];
+        } else {
+          matrix[i][j] = Math.min(
+            matrix[i - 1][j - 1] + 1,
+            matrix[i][j - 1] + 1,
+            matrix[i - 1][j] + 1
+          );
+        }
+      }
+    }
+    
+    return matrix[str2.length][str1.length];
   };
 
   const extractEntities = (text: string, intent: string): any => {
@@ -369,8 +537,120 @@ const UnifiedHotelChatbot = () => {
     }
   };
 
+  // Enhanced FAQ search function
+  const searchFAQ = (text: string): any => {
+    const lowerText = text.toLowerCase();
+    
+    for (const [key, faq] of Object.entries(faqDatabase)) {
+      const matchesKeywords = faq.keywords.some(keyword => lowerText.includes(keyword));
+      const matchesQuestion = lowerText.includes(faq.question.toLowerCase());
+      
+      if (matchesKeywords || matchesQuestion) {
+        return {
+          question: faq.question,
+          answer: faq.answer,
+          confidence: matchesQuestion ? 0.95 : 0.85
+        };
+      }
+    }
+    return null;
+  };
+
+  // Spell correction and intent enhancement
+  const correctSpellingAndDetectIntent = (text: string): { correctedText: string; suggestedIntent?: string } => {
+    let correctedText = text;
+    
+    // Common hotel-related spelling corrections
+    const corrections = {
+      'amenity': ['amnity', 'ameniti', 'amenty'],
+      'reservation': ['reservaton', 'resevation', 'reserv'],
+      'restaurant': ['restarant', 'resturant', 'restrant'],
+      'breakfast': ['brekfast', 'breakfst', 'breckfast'],
+      'available': ['availabel', 'avalible', 'availble'],
+      'massage': ['masage', 'massag', 'mesage'],
+      'concierge': ['consierge', 'concierj', 'concierg'],
+      'facility': ['faciliti', 'facillity', 'facilitie']
+    };
+
+    for (const [correct, misspellings] of Object.entries(corrections)) {
+      misspellings.forEach(misspell => {
+        if (correctedText.toLowerCase().includes(misspell)) {
+          correctedText = correctedText.replace(new RegExp(misspell, 'gi'), correct);
+        }
+      });
+    }
+
+    return { correctedText };
+  };
+
+  // Enhanced module-based response routing
+  const routeToModule = (intent: string, userText: string, entities: any): any => {
+    const module = intentTrainingData[intent]?.module;
+    
+    switch (module) {
+      case 'faq':
+        const faqResult = searchFAQ(userText);
+        if (faqResult) {
+          return {
+            text: faqResult.answer,
+            type: 'text' as const,
+            confidence: faqResult.confidence
+          };
+        }
+        break;
+      
+      case 'support':
+        return {
+          text: "I'm sorry you're experiencing an issue. Let me connect you with the right department to help resolve this quickly:",
+          type: 'department-contacts' as const,
+          data: {
+            departments: Object.values(departmentContacts).map(dept => ({
+              department: dept.name,
+              phone: dept.phone,
+              email: dept.email,
+              hours: dept.hours,
+              description: dept.description
+            }))
+          }
+        };
+      
+      case 'payment':
+        return {
+          text: "I can help you with payment and billing inquiries. Here are your options:",
+          type: 'payment-options' as const,
+          data: {
+            options: [
+              { title: "Pay Outstanding Balance", action: "pay_balance", description: "Complete any pending payments" },
+              { title: "View Bill Details", action: "view_bill", description: "See detailed breakdown of charges" },
+              { title: "Payment History", action: "payment_history", description: "Review past transactions" },
+              { title: "Billing Support", action: "billing_support", description: "Speak with billing department" }
+            ]
+          }
+        };
+    }
+    
+    return null;
+  };
+
   const generateResponse = (intent: string, confidence: number, entities: any, userText: string) => {
     console.log(`Intent: ${intent}, Confidence: ${confidence}, Entities:`, entities);
+
+    // Check for FAQ first
+    if (intent === 'FAQ' || confidence < 0.65) {
+      const faqResult = searchFAQ(userText);
+      if (faqResult && faqResult.confidence > 0.8) {
+        return {
+          text: faqResult.answer,
+          type: 'text' as const
+        };
+      }
+    }
+
+    // Route to appropriate module
+    const moduleResponse = routeToModule(intent, userText, entities);
+    if (moduleResponse) {
+      return moduleResponse;
+    }
 
     if (confidence < 0.65) {
       return handleFallback(userText, confidence);
@@ -519,6 +799,106 @@ const UnifiedHotelChatbot = () => {
             ]
           }
         };
+
+      case 'ViewBooking':
+        if (isVerified && guestBooking) {
+          return {
+            text: `Here are your current booking details, ${personalGreeting}:`,
+            type: 'guest-profile' as const,
+            data: { booking: guestBooking }
+          };
+        } else {
+          return {
+            text: "I'd be happy to help you view your booking details! Please provide your booking confirmation number:",
+            type: 'text' as const
+          };
+        }
+
+      case 'ModifyBooking':
+        if (isVerified && guestBooking) {
+          return {
+            text: `I can help you modify your booking, ${personalGreeting}. What would you like to change?`,
+            type: 'booking-modification' as const,
+            data: {
+              currentBooking: guestBooking,
+              options: [
+                { title: "Change Dates", action: "change_dates", description: "Modify check-in/check-out dates" },
+                { title: "Change Room Type", action: "change_room", description: "Upgrade or change room category" },
+                { title: "Add Guests", action: "add_guests", description: "Modify guest count" },
+                { title: "Special Requests", action: "special_requests", description: "Add dietary or accessibility needs" }
+              ]
+            }
+          };
+        } else {
+          return {
+            text: "To modify your booking, I'll need to verify your reservation first. Please provide your booking confirmation number:",
+            type: 'text' as const
+          };
+        }
+
+      case 'ModifyFoodOrder':
+        if (currentOrder.items.length > 0) {
+          return {
+            text: "I can help you modify your current food order. What changes would you like to make?",
+            type: 'order-modification' as const,
+            data: {
+              currentOrder: currentOrder.items,
+              options: [
+                { title: "Add Items", action: "add_items", description: "Add more dishes to your order" },
+                { title: "Remove Items", action: "remove_items", description: "Remove items from your order" },
+                { title: "Change Quantities", action: "change_quantity", description: "Modify item quantities" },
+                { title: "Cancel Order", action: "cancel_order", description: "Cancel the entire order" }
+              ]
+            }
+          };
+        } else {
+          return {
+            text: "You don't have any active food orders to modify. Would you like to place a new order?",
+            type: 'text' as const
+          };
+        }
+
+      case 'AddAmenity':
+        return {
+          text: `Perfect! I'd love to help you add amenities to enhance your stay${personalGreeting ? `, ${personalGreeting}` : ''}. Here are our available services:`,
+          type: 'amenity-booking' as const,
+          data: {
+            amenities: amenityServices.map(amenity => ({
+              ...amenity,
+              bookable: true
+            }))
+          }
+        };
+
+      case 'PaymentInquiry':
+        const relatedIntent = entities?.relatedIntent;
+        if (relatedIntent === 'RequestRoomService' && currentOrder.items.length > 0) {
+          const total = currentOrder.items.reduce((sum, item) => sum + item.price, 0);
+          return {
+            text: `Your current food order total is $${total.toFixed(2)}. Would you like to proceed with payment?`,
+            type: 'payment-summary' as const,
+            data: {
+              type: 'food',
+              items: currentOrder.items,
+              total: total
+            }
+          };
+        } else if (isVerified && guestBooking) {
+          return {
+            text: `Here's your billing information for booking ${guestBooking.booking_number}:`,
+            type: 'payment-summary' as const,
+            data: {
+              type: 'booking',
+              booking: guestBooking,
+              total: guestBooking.total_amount || 0
+            }
+          };
+        } else {
+          return {
+            text: "I can help you with payment and billing inquiries. What specific information do you need?",
+            type: 'text' as const
+          };
+        }
 
       case 'ThankYou':
         return {
@@ -1000,6 +1380,107 @@ const UnifiedHotelChatbot = () => {
                   </div>
                 </CardContent>
               </Card>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    if (message.type === 'booking-modification' && message.data) {
+      return (
+        <div className="space-y-3">
+          <p className="text-sm text-muted-foreground mb-3">{message.content}</p>
+          <div className="grid grid-cols-2 gap-2">
+            {message.data.options.map((option: any, index: number) => (
+              <Button 
+                key={index} 
+                variant="outline" 
+                size="sm" 
+                className="h-auto p-3 flex flex-col items-start"
+                onClick={() => handleQuickAction(option.action)}
+              >
+                <span className="font-medium">{option.title}</span>
+                <span className="text-xs text-muted-foreground mt-1">{option.description}</span>
+              </Button>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    if (message.type === 'payment-summary' && message.data) {
+      return (
+        <div className="space-y-3">
+          <p className="text-sm text-muted-foreground mb-3">{message.content}</p>
+          <Card className="border border-border">
+            <CardContent className="p-4">
+              {message.data.type === 'food' && (
+                <>
+                  <h4 className="font-semibold mb-2">Order Summary</h4>
+                  {message.data.items.map((item: any, index: number) => (
+                    <div key={index} className="flex justify-between text-sm mb-1">
+                      <span>{item.name}</span>
+                      <span>${item.price}</span>
+                    </div>
+                  ))}
+                  <div className="border-t pt-2 mt-2">
+                    <div className="flex justify-between font-semibold">
+                      <span>Total</span>
+                      <span>${message.data.total.toFixed(2)}</span>
+                    </div>
+                  </div>
+                </>
+              )}
+              {message.data.type === 'booking' && (
+                <>
+                  <h4 className="font-semibold mb-2">Booking Summary</h4>
+                  <div className="text-sm space-y-1">
+                    <div className="flex justify-between">
+                      <span>Booking Number:</span>
+                      <span>{message.data.booking.booking_number}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Room Type:</span>
+                      <span>{message.data.booking.room_type}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Total Amount:</span>
+                      <span>${message.data.total}</span>
+                    </div>
+                  </div>
+                </>
+              )}
+              <Button 
+                className="w-full mt-3 bg-green-600 hover:bg-green-700"
+                onClick={() => handlePaymentClick(message.data)}
+              >
+                Proceed to Payment
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      );
+    }
+
+    if (message.type === 'payment-options' && message.data) {
+      return (
+        <div className="space-y-3">
+          <p className="text-sm text-muted-foreground mb-3">{message.content}</p>
+          <div className="grid gap-2">
+            {message.data.options.map((option: any, index: number) => (
+              <Button 
+                key={index} 
+                variant="outline" 
+                size="sm" 
+                className="h-auto p-3 flex justify-between items-center"
+                onClick={() => handleQuickAction(option.action)}
+              >
+                <div className="text-left">
+                  <div className="font-medium">{option.title}</div>
+                  <div className="text-xs text-muted-foreground">{option.description}</div>
+                </div>
+                <CreditCard className="w-4 h-4" />
+              </Button>
             ))}
           </div>
         </div>
