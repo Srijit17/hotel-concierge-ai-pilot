@@ -2,15 +2,6 @@
 
 ## Project info
 
-**URL**: https://.dev/projects/21cb6ac7-7861-4abd-a9c3-681813eb79ca
-
-
-**Use **
-
-Simply visit the [ Project](https://.dev/projects/21cb6ac7-7861-4abd-a9c3-681813eb79ca) and start prompting.
-
-
-
 ```sh
 # Step 1: Clone the repository using the project's Git URL.
 git clone <YOUR_GIT_URL>
