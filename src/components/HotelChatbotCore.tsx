@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -979,12 +978,12 @@ const HotelChatbotCore = () => {
     }
 
     if (message.type === 'activity-prompts' && message.data) {
-      const prompts = message.data as string[];
+      const prompts = Array.isArray(message.data) ? message.data : [];
       return (
         <div className="space-y-3">
           <p className="text-sm text-gray-600 mb-3">{message.content}</p>
           <div className="space-y-2">
-            {prompts.map((prompt, index) => (
+            {prompts.map((prompt: string, index: number) => (
               <Card key={index} className="border border-blue-200 bg-blue-50">
                 <CardContent className="p-3">
                   <p className="text-sm text-blue-900">{prompt}</p>
