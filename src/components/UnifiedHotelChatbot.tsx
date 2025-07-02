@@ -61,6 +61,9 @@ const UnifiedHotelChatbot = () => {
   const [interactiveElements, setInteractiveElements] = useState<any[]>([]);
   const [sessionStartTime, setSessionStartTime] = useState<Date>(new Date());
   const [bookingState, setBookingState] = useState<BookingState>({ step: 'room_selection' });
+  const [isError, setIsError] = useState(false);
+  const [errorCount, setErrorCount] = useState(0);
+  const [isSessionActive, setIsSessionActive] = useState(true);
   
   const [userContext, setUserContext] = useState<UserContext>({
     hasBooking: false,
@@ -75,266 +78,462 @@ const UnifiedHotelChatbot = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
+  // Enhanced initialization with error handling
   useEffect(() => {
-    initializeSession();
-    setSessionStartTime(new Date());
-    
-    // Enhanced greeting with food and amenities
-    addBotMessage(
-      "Welcome to The Grand Luxury Hotel! I'm Sofia, your enhanced AI concierge with smart insights and interactive features. Let's make your stay extraordinary!", 
-      'greeting-buttons'
-    );
-    
-    // Add food and amenities options after greeting
-    setTimeout(() => {
-      addBotMessage(
-        "I can help you with room bookings, delicious dining options, and luxurious amenities. What would you like to explore first?",
-        'service-options'
-      );
-    }, 1500);
-    
-    const timeOfDay = SessionManager.updateTimeOfDay();
-    setUserContext(prev => ({ ...prev, timeOfDay }));
-    
-    setTimeout(() => {
-      setShowInteractiveFeatures(true);
-    }, 2000);
+    const initializeChat = async () => {
+      try {
+        await initializeSession();
+        setSessionStartTime(new Date());
+        
+        // Enhanced greeting with better error handling
+        addBotMessage(
+          "Welcome to The Grand Luxury Hotel! I'm Sofia, your enhanced AI concierge. I'm here to help you with bookings, dining, amenities, and any questions you might have.", 
+          'greeting-buttons'
+        );
+        
+        // Add service options after greeting
+        setTimeout(() => {
+          if (isSessionActive) {
+            addBotMessage(
+              "What would you like to explore today? I can help with room bookings, delicious dining options, luxurious amenities, or answer any questions about our services.",
+              'service-options'
+            );
+          }
+        }, 1500);
+        
+        const timeOfDay = SessionManager.updateTimeOfDay();
+        setUserContext(prev => ({ ...prev, timeOfDay }));
+        
+        setTimeout(() => {
+          if (isSessionActive) {
+            setShowInteractiveFeatures(true);
+          }
+        }, 2000);
+
+        setIsError(false);
+        setErrorCount(0);
+      } catch (error) {
+        console.error('Chat initialization error:', error);
+        handleInitializationError();
+      }
+    };
+
+    initializeChat();
+
+    // Cleanup function
+    return () => {
+      setIsSessionActive(false);
+    };
   }, []);
 
+  // Session duration tracking with error handling
   useEffect(() => {
+    if (!isSessionActive) return;
+
     const interval = setInterval(() => {
-      const duration = Date.now() - sessionStartTime.getTime();
-      dataManager.updateSessionDuration(duration);
+      try {
+        const duration = Date.now() - sessionStartTime.getTime();
+        dataManager.updateSessionDuration(duration);
+      } catch (error) {
+        console.error('Session duration update error:', error);
+      }
     }, 10000);
 
     return () => clearInterval(interval);
-  }, [sessionStartTime]);
+  }, [sessionStartTime, isSessionActive]);
 
+  // Auto-scroll with error handling
   useEffect(() => {
-    scrollToBottom();
+    try {
+      scrollToBottom();
+    } catch (error) {
+      console.error('Scroll error:', error);
+    }
   }, [messages]);
 
+  // Enhanced error handling for initialization
+  const handleInitializationError = () => {
+    setIsError(true);
+    addBotMessage(
+      "I'm experiencing some technical difficulties while starting up. Please bear with me as I try to resolve this.",
+      'error-recovery'
+    );
+    
+    // Retry initialization after delay
+    setTimeout(() => {
+      if (errorCount < 3) {
+        setErrorCount(prev => prev + 1);
+        window.location.reload();
+      } else {
+        addBotMessage(
+          "I'm having persistent technical issues. Please refresh the page or contact our support team for immediate assistance.",
+          'critical-error'
+        );
+      }
+    }, 3000);
+  };
+
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
   };
 
   const initializeSession = async () => {
-    const id = await SessionManager.initializeSession();
-    setSessionId(id);
+    try {
+      const id = await SessionManager.initializeSession();
+      setSessionId(id);
+    } catch (error) {
+      console.error('Session initialization error:', error);
+      // Generate fallback session ID
+      setSessionId(`fallback_${Date.now()}`);
+    }
   };
 
+  // Enhanced message adding with validation
   const addBotMessage = (content: string, type?: string, data?: any, confidence?: number) => {
-    const newMessage: Message = {
-      id: Date.now().toString(),
-      sender: 'bot',
-      content,
-      timestamp: new Date(),
-      type: type as any,
-      data,
-      confidence
-    };
-    setMessages(prev => [...prev, newMessage]);
-    
-    if (type && ['room-cards', 'menu-items', 'amenity-info'].includes(type)) {
-      const elements = dataManager.generateInteractiveElements(type.replace('-', '_'));
-      setInteractiveElements(elements);
-    }
-  };
-
-  const addDepartmentContacts = () => {
-    addBotMessage(
-      "Need direct assistance? Here are our department contacts available 24/7:",
-      'department-contacts',
-      {
-        departments: [
-          { 
-            department: "Booking & Reservations", 
-            phone: "+91 90000 11111", 
-            email: "booking@grandluxury.com",
-            hours: "24/7", 
-            description: "Room bookings, modifications, cancellations" 
-          },
-          { 
-            department: "Food & Room Service", 
-            phone: "+91 90000 22222", 
-            email: "food@grandluxury.com",
-            hours: "24/7", 
-            description: "Menu, orders, dietary requirements" 
-          },
-          { 
-            department: "Spa & Wellness", 
-            phone: "+91 90000 44444", 
-            email: "spa@grandluxury.com",
-            hours: "6 AM - 11 PM", 
-            description: "Spa treatments, wellness programs" 
-          },
-          { 
-            department: "Guest Relations", 
-            phone: "+91 90000 33333", 
-            email: "support@grandluxury.com",
-            hours: "24/7", 
-            description: "General assistance and special requests" 
-          }
-        ]
+    try {
+      if (!content || typeof content !== 'string') {
+        console.error('Invalid message content');
+        return;
       }
-    );
+
+      const newMessage: Message = {
+        id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        sender: 'bot',
+        content: content.trim(),
+        timestamp: new Date(),
+        type: type as any,
+        data,
+        confidence: confidence || 0.9
+      };
+
+      setMessages(prev => {
+        // Prevent duplicate messages
+        const isDuplicate = prev.some(msg => 
+          msg.content === newMessage.content && 
+          msg.sender === newMessage.sender &&
+          Date.now() - msg.timestamp.getTime() < 1000
+        );
+
+        if (isDuplicate) {
+          console.warn('Duplicate message prevented');
+          return prev;
+        }
+
+        return [...prev, newMessage];
+      });
+      
+      // Handle interactive elements
+      if (type && ['room-cards', 'menu-items', 'amenity-info'].includes(type)) {
+        try {
+          const elements = dataManager.generateInteractiveElements(type.replace('-', '_'));
+          setInteractiveElements(elements);
+        } catch (error) {
+          console.error('Interactive elements error:', error);
+        }
+      }
+    } catch (error) {
+      console.error('Error adding bot message:', error);
+    }
   };
 
-  const handleBookingFlow = (step: string, data?: any) => {
-    switch (step) {
-      case 'start_booking':
-        setBookingState({ step: 'room_selection' });
-        // Fetch actual room data from Supabase or use mock data
-        const availableRooms = [
-          { 
-            id: '1', 
-            name: 'Deluxe Mountain View', 
-            type: 'deluxe', 
-            price_per_night: 250, 
-            features: ['Mountain View', 'Free WiFi', 'Mini Bar', 'Balcony'], 
-            max_guests: 2, 
-            image_url: '/placeholder.svg', 
-            available: true 
-          },
-          { 
-            id: '2', 
-            name: 'Heritage Suite', 
-            type: 'suite', 
-            price_per_night: 400, 
-            features: ['Heritage Decor', 'Separate Living Area', 'Jacuzzi', 'Butler Service'], 
-            max_guests: 4, 
-            image_url: '/placeholder.svg', 
-            available: true 
-          },
-          { 
-            id: '3', 
-            name: 'Royal Presidential Suite', 
-            type: 'presidential', 
-            price_per_night: 750, 
-            features: ['Panoramic City View', 'Private Terrace', 'Butler Service', 'Dining Room'], 
-            max_guests: 6, 
-            image_url: '/placeholder.svg', 
-            available: true 
-          }
-        ];
-        
-        addBotMessage("Perfect! Let me show you our available luxury accommodations:", 'room-cards', {
-          rooms: availableRooms
-        });
-        break;
-        
-      case 'room_selected':
-        setBookingState({ step: 'guest_details', selectedRoom: data });
-        addBotMessage(
-          `Excellent choice! The ${data.name} is perfect for your stay. Now please provide your booking details:`,
-          'booking-form',
-          { room: data }
-        );
-        break;
-        
-      case 'booking_confirmed':
-        setBookingState({ step: 'completed', ...bookingState, guestDetails: data });
-        const nights = 2; // Calculate actual nights based on dates
-        const total = bookingState.selectedRoom?.price_per_night * nights;
-        
-        addBotMessage(
-          `🎉 Congratulations! Your booking is confirmed. Here's your confirmation:`,
-          'booking-confirmation',
-          {
-            booking: {
-              bookingNumber: `GRD${Date.now().toString().slice(-6)}`,
-              room: bookingState.selectedRoom,
-              guest: data,
-              total: total
+  // Enhanced department contacts with error handling
+  const addDepartmentContacts = () => {
+    try {
+      addBotMessage(
+        "Need direct assistance? Here are our department contacts available 24/7:",
+        'department-contacts',
+        {
+          departments: [
+            { 
+              department: "Booking & Reservations", 
+              phone: "+91 90000 11111", 
+              email: "booking@grandluxury.com",
+              hours: "24/7", 
+              description: "Room bookings, modifications, cancellations" 
+            },
+            { 
+              department: "Food & Room Service", 
+              phone: "+91 90000 22222", 
+              email: "food@grandluxury.com",
+              hours: "24/7", 
+              description: "Menu, orders, dietary requirements" 
+            },
+            { 
+              department: "Spa & Wellness", 
+              phone: "+91 90000 44444", 
+              email: "spa@grandluxury.com",
+              hours: "6 AM - 11 PM", 
+              description: "Spa treatments, wellness programs" 
+            },
+            { 
+              department: "Guest Relations", 
+              phone: "+91 90000 33333", 
+              email: "support@grandluxury.com",
+              hours: "24/7", 
+              description: "General assistance and special requests" 
             }
-          }
-        );
-        
-        // Offer additional services after booking
-        setTimeout(() => {
-          addBotMessage(
-            "Now that your room is booked, would you like to explore our dining options and spa services?",
-            'post-booking-services'
-          );
-        }, 2000);
-        break;
-    }
-  };
-
-  const handleSpaBookingFlow = (step: string, data?: any) => {
-    switch (step) {
-      case 'show_spa_amenities':
-        const spaServices = amenityServices.filter(service => service.category === 'Spa');
-        addBotMessage("Here are our luxurious spa treatments:", 'spa-amenities', {
-          amenities: spaServices
-        });
-        break;
-        
-      case 'book_spa_treatment':
-        addBotMessage("I'd be delighted to help you book a spa treatment! Please select your preferred service:", 'spa-booking', {
-          amenities: amenityServices.filter(service => service.category === 'Spa')
-        });
-        break;
-        
-      case 'spa_treatment_selected':
-        addBotMessage(`Perfect choice! ${data.name} is one of our most popular treatments. Please select your preferred time slot:`, 'spa-time-slots', {
-          service: data,
-          timeSlots: [
-            { time: '10:00 AM', available: true },
-            { time: '12:00 PM', available: true },
-            { time: '2:00 PM', available: false },
-            { time: '4:00 PM', available: true },
-            { time: '6:00 PM', available: true }
           ]
-        });
-        break;
-        
-      case 'spa_time_selected':
-        addBotMessage(`Excellent! Your ${data.service.name} is booked for ${data.timeSlot}. Would you like to proceed with payment?`, 'spa-payment', {
-          booking: data
-        });
-        break;
+        }
+      );
+    } catch (error) {
+      console.error('Error adding department contacts:', error);
+      addBotMessage(
+        "For immediate assistance, please call our main number: +91 90000 11111",
+        'text'
+      );
     }
   };
 
+  // Enhanced booking flow with comprehensive error handling
+  const handleBookingFlow = (step: string, data?: any) => {
+    try {
+      switch (step) {
+        case 'start_booking':
+          setBookingState({ step: 'room_selection' });
+          const availableRooms = [
+            { 
+              id: '1', 
+              name: 'Deluxe Mountain View', 
+              type: 'deluxe', 
+              price_per_night: 250, 
+              features: ['Mountain View', 'Free WiFi', 'Mini Bar', 'Balcony'], 
+              max_guests: 2, 
+              image_url: '/placeholder.svg', 
+              available: true 
+            },
+            { 
+              id: '2', 
+              name: 'Heritage Suite', 
+              type: 'suite', 
+              price_per_night: 400, 
+              features: ['Heritage Decor', 'Separate Living Area', 'Jacuzzi', 'Butler Service'], 
+              max_guests: 4, 
+              image_url: '/placeholder.svg', 
+              available: true 
+            },
+            { 
+              id: '3', 
+              name: 'Royal Presidential Suite', 
+              type: 'presidential', 
+              price_per_night: 750, 
+              features: ['Panoramic City View', 'Private Terrace', 'Butler Service', 'Dining Room'], 
+              max_guests: 6, 
+              image_url: '/placeholder.svg', 
+              available: true 
+            }
+          ];
+          
+          addBotMessage("Perfect! Let me show you our available luxury accommodations:", 'room-cards', {
+            rooms: availableRooms
+          });
+          break;
+          
+        case 'room_selected':
+          if (!data) {
+            addBotMessage("I'm sorry, there was an issue with your room selection. Please try again.", 'error');
+            return;
+          }
+          setBookingState({ step: 'guest_details', selectedRoom: data });
+          addBotMessage(
+            `Excellent choice! The ${data.name} is perfect for your stay. Now please provide your booking details:`,
+            'booking-form',
+            { room: data }
+          );
+          break;
+          
+        case 'booking_confirmed':
+          if (!data || !bookingState.selectedRoom) {
+            addBotMessage("I'm sorry, there was an issue processing your booking. Please try again.", 'error');
+            return;
+          }
+          setBookingState({ step: 'completed', ...bookingState, guestDetails: data });
+          const nights = 2;
+          const total = bookingState.selectedRoom?.price_per_night * nights;
+          
+          addBotMessage(
+            `🎉 Congratulations! Your booking is confirmed. Here's your confirmation:`,
+            'booking-confirmation',
+            {
+              booking: {
+                bookingNumber: `GRD${Date.now().toString().slice(-6)}`,
+                room: bookingState.selectedRoom,
+                guest: data,
+                total: total
+              }
+            }
+          );
+          
+          setTimeout(() => {
+            addBotMessage(
+              "Now that your room is booked, would you like to explore our dining options and spa services?",
+              'post-booking-services'
+            );
+          }, 2000);
+          break;
+
+        default:
+          addBotMessage("I'm not sure how to help with that booking request. Let me connect you with our reservations team.", 'error');
+          setTimeout(() => addDepartmentContacts(), 1000);
+      }
+    } catch (error) {
+      console.error('Booking flow error:', error);
+      addBotMessage("I encountered an error while processing your booking. Let me connect you with our reservations team.", 'error');
+      setTimeout(() => addDepartmentContacts(), 1000);
+    }
+  };
+
+  // Enhanced spa booking flow with error handling
+  const handleSpaBookingFlow = (step: string, data?: any) => {
+    try {
+      switch (step) {
+        case 'show_spa_amenities':
+          const spaServices = amenityServices.filter(service => service.category === 'Spa');
+          if (spaServices.length === 0) {
+            addBotMessage("I'm sorry, our spa services are currently being updated. Please contact our spa directly.", 'error');
+            return;
+          }
+          addBotMessage("Here are our luxurious spa treatments:", 'spa-amenities', {
+            amenities: spaServices
+          });
+          break;
+          
+        case 'book_spa_treatment':
+          const availableTreatments = amenityServices.filter(service => service.category === 'Spa');
+          if (availableTreatments.length === 0) {
+            addBotMessage("I'm sorry, spa bookings are currently unavailable. Please contact our spa directly.", 'error');
+            return;
+          }
+          addBotMessage("I'd be delighted to help you book a spa treatment! Please select your preferred service:", 'spa-booking', {
+            amenities: availableTreatments
+          });
+          break;
+          
+        case 'spa_treatment_selected':
+          if (!data) {
+            addBotMessage("I'm sorry, there was an issue selecting your spa treatment. Please try again.", 'error');
+            return;
+          }
+          addBotMessage(`Perfect choice! ${data.name} is one of our most popular treatments. Please select your preferred time slot:`, 'spa-time-slots', {
+            service: data,
+            timeSlots: [
+              { time: '10:00 AM', available: true },
+              { time: '12:00 PM', available: true },
+              { time: '2:00 PM', available: false },
+              { time: '4:00 PM', available: true },
+              { time: '6:00 PM', available: true }
+            ]
+          });
+          break;
+          
+        case 'spa_time_selected':
+          if (!data) {
+            addBotMessage("I'm sorry, there was an issue with your time selection. Please try again.", 'error');
+            return;
+          }
+          addBotMessage(`Excellent! Your ${data.service.name} is booked for ${data.timeSlot}. Would you like to proceed with payment?`, 'spa-payment', {
+            booking: data
+          });
+          break;
+
+        default:
+          addBotMessage("I'm not sure how to help with that spa request. Let me connect you with our spa team.", 'error');
+          setTimeout(() => addDepartmentContacts(), 1000);
+      }
+    } catch (error) {
+      console.error('Spa booking flow error:', error);
+      addBotMessage("I encountered an error while processing your spa booking. Let me connect you with our spa team.", 'error');
+      setTimeout(() => addDepartmentContacts(), 1000);
+    }
+  };
+
+  // Enhanced message sending with comprehensive validation and error handling
   const handleSendMessage = async () => {
-    if (!input.trim()) return;
-
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      sender: 'user',
-      content: input,
-      timestamp: new Date()
-    };
-
-    setMessages(prev => [...prev, userMessage]);
-    dataManager.incrementMessageCount();
-    
-    dataManager.trackInteraction({
-      type: 'input',
-      elementId: 'chat_input',
-      value: input,
-      context: 'message_send'
-    });
-
-    const userInput = input;
-    setInput('');
-    
-    const corrections = generateCorrectionSuggestions(userInput);
-    if (corrections.length > 0 && corrections[0].confidence > 0.85) {
-      setCorrectionSuggestions(corrections);
+    if (!input.trim()) {
+      toast({
+        title: "Empty Message",
+        description: "Please enter a message before sending.",
+        variant: "destructive"
+      });
       return;
     }
 
-    await processUserMessage(userInput);
+    if (input.trim().length > 1000) {
+      toast({
+        title: "Message Too Long",
+        description: "Please keep your message under 1000 characters.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (isTyping) {
+      toast({
+        title: "Please Wait",
+        description: "I'm still processing your previous message.",
+      });
+      return;
+    }
+
+    try {
+      const userMessage: Message = {
+        id: `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        sender: 'user',
+        content: input.trim(),
+        timestamp: new Date()
+      };
+
+      setMessages(prev => [...prev, userMessage]);
+      dataManager.incrementMessageCount();
+      
+      dataManager.trackInteraction({
+        type: 'input',
+        elementId: 'chat_input',
+        value: input.trim(),
+        context: 'message_send'
+      });
+
+      const userInput = input.trim();
+      setInput('');
+      
+      // Enhanced correction suggestions with error handling
+      try {
+        const corrections = generateCorrectionSuggestions(userInput);
+        if (corrections.length > 0 && corrections[0].confidence > 0.85) {
+          setCorrectionSuggestions(corrections);
+          return;
+        }
+      } catch (error) {
+        console.error('Correction suggestions error:', error);
+      }
+
+      await processUserMessage(userInput);
+    } catch (error) {
+      console.error('Send message error:', error);
+      toast({
+        title: "Error",
+        description: "Failed to send message. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
+  // Enhanced message processing with comprehensive error handling
   const processUserMessage = async (userInput: string) => {
+    if (!userInput || !isSessionActive) return;
+
     setIsTyping(true);
 
     try {
       // First check for city, heritage, or service queries
-      const queryType = detectQueryType(userInput);
+      let queryType;
+      try {
+        queryType = detectQueryType(userInput);
+      } catch (error) {
+        console.error('Query type detection error:', error);
+        queryType = null;
+      }
       
       if (queryType === 'city_info') {
         const cityResponse = generateCityResponse(userInput);
@@ -385,6 +584,7 @@ const UnifiedHotelChatbot = () => {
         previousMessages
       );
 
+      // Update session context
       setSessionContext(prev => ({
         ...prev,
         previousIntents: [...prev.previousIntents.slice(-2), response.type || 'general'],
@@ -394,6 +594,8 @@ const UnifiedHotelChatbot = () => {
       setShowSuggestions(true);
       setShowFAQ(false);
 
+      // Enhanced response handling with typing delay
+      const typingDelay = Math.random() * 800 + 200;
       setTimeout(() => {
         setIsTyping(false);
         
@@ -412,21 +614,28 @@ const UnifiedHotelChatbot = () => {
             items: menuItems,
             categorized: true
           }, response.confidence);
+        } else if (response.data?.action === 'show_contact_support') {
+          addBotMessage(response.text, 'text', response.data, response.confidence);
+          setTimeout(() => addDepartmentContacts(), 500);
         } else {
           addBotMessage(response.text, response.type, response.data, response.confidence);
         }
         
-        // Always add department contacts after any response
+        // Always add department contacts after any response (with delay)
         setTimeout(() => {
           addDepartmentContacts();
         }, 1000);
         
-      }, Math.random() * 800 + 200);
+      }, typingDelay);
 
     } catch (error) {
-      console.error('Error generating response:', error);
+      console.error('Error processing user message:', error);
       setIsTyping(false);
-      addDepartmentContacts();
+      addBotMessage(
+        "I apologize, but I encountered an error while processing your message. Let me connect you with our support team for immediate assistance.",
+        'error'
+      );
+      setTimeout(() => addDepartmentContacts(), 500);
     }
   };
 
@@ -570,7 +779,14 @@ const UnifiedHotelChatbot = () => {
 
     const actionHandler = quickActions[action];
     if (actionHandler) {
-      actionHandler();
+      try {
+        actionHandler();
+      } catch (error) {
+        console.error(`Quick action error for ${action}:`, error);
+        addBotMessage("I encountered an error processing that request. How else can I help you?", 'error');
+      }
+    } else {
+      addBotMessage("I'm not sure how to handle that request. Could you please be more specific?", 'error');
     }
   };
 
@@ -587,7 +803,6 @@ const UnifiedHotelChatbot = () => {
     addBotMessage(`Great selection! I've noted ${item.name} for your order. Would you like to add more items or proceed with this order?`, 'order-options', { selectedItem: item });
     setUserContext(prev => ({ ...prev, lastOrderTime: new Date().toISOString() }));
     
-    // Add spa treatment suggestion after room service order
     setTimeout(() => {
       addBotMessage(
         "Since you've ordered room service, would you like to book a relaxing spa treatment to complete your in-room experience?",
@@ -621,6 +836,26 @@ const UnifiedHotelChatbot = () => {
     processUserMessage(prompt);
     setShowFAQPrompts(false);
   };
+
+  // Enhanced render with error boundary
+  if (isError && errorCount >= 3) {
+    return (
+      <Card className="w-full max-w-4xl mx-auto h-[700px] flex flex-col items-center justify-center">
+        <CardContent className="text-center">
+          <h2 className="text-xl font-semibold mb-4">Service Temporarily Unavailable</h2>
+          <p className="text-gray-600 mb-4">
+            We're experiencing technical difficulties. Please refresh the page or contact our support team.
+          </p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+          >
+            Refresh Page
+          </button>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="w-full max-w-4xl mx-auto h-[700px] flex flex-col">
