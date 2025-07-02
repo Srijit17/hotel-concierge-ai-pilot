@@ -11,7 +11,7 @@ interface Message {
   sender: 'user' | 'bot';
   content: string;
   timestamp: Date;
-  type?: 'text' | 'room-cards' | 'booking-summary' | 'menu-items' | 'amenity-info' | 'contact-info' | 'guest-profile' | 'smart-suggestions';
+  type?: 'text' | 'room-cards' | 'booking-summary' | 'menu-items' | 'amenity-info' | 'contact-info' | 'guest-profile' | 'smart-suggestions' | 'greeting-buttons';
   data?: any;
 }
 
@@ -28,19 +28,19 @@ interface Room {
 interface GuestBooking {
   booking_number: string;
   guest_name: string;
-  email: string;
-  phone: string;
+  email: string | null;
+  phone: string | null;
   room_type: string;
-  room_number: string;
+  room_number: string | null;
   check_in: string;
   check_out: string;
-  guests_count: number;
-  stay_purpose: string;
+  guests_count: number | null;
+  stay_purpose: string | null;
   preferences: any;
-  services_used: string[];
-  special_requests: string;
-  total_amount: number;
-  status: string;
+  services_used: any;
+  special_requests: string | null;
+  total_amount: number | null;
+  status: string | null;
 }
 
 interface BookingData {
@@ -105,10 +105,25 @@ const HotelChatbotCore = () => {
       
       if (session) {
         setSessionId(session.id);
-        // Enhanced greeting with booking verification option
+        // Enhanced greeting with interactive buttons
         addBotMessage("👋 Welcome to The Grand Luxury Hotel! I'm Sofia, your personal concierge assistant.", 'text');
         setTimeout(() => {
-          addBotMessage("I can help you in two ways:\n\n🎫 **Existing Guest**: Provide your booking number for personalized service\n🔍 **New Inquiry**: Browse rooms and make reservations\n\nWhich would you prefer?", 'text');
+          addBotMessage("How would you like to proceed today?", 'greeting-buttons', {
+            buttons: [
+              {
+                id: 'existing_guest',
+                title: '🎫 Existing Guest',
+                subtitle: 'I have a booking number',
+                description: 'Get personalized service with your booking details'
+              },
+              {
+                id: 'new_inquiry',
+                title: '🔍 New Inquiry', 
+                subtitle: 'Looking for rooms',
+                description: 'Browse available rooms and make reservations'
+              }
+            ]
+          });
         }, 1000);
       }
     } catch (error) {
@@ -116,7 +131,21 @@ const HotelChatbotCore = () => {
     }
   };
 
-  const addBotMessage = (content: string, type: 'text' | 'room-cards' | 'booking-summary' | 'menu-items' | 'amenity-info' | 'contact-info' | 'guest-profile' | 'smart-suggestions' = 'text', data?: any) => {
+  const handleGreetingButtonClick = (buttonId: string) => {
+    if (buttonId === 'existing_guest') {
+      addUserMessage("I'm an existing guest");
+      addBotMessage("Perfect! Please provide your booking number (format: BK12345) so I can access your reservation details and provide personalized assistance.");
+      setAwaitingInput('booking_verification');
+    } else if (buttonId === 'new_inquiry') {
+      addUserMessage("I'd like to make a new inquiry");
+      addBotMessage("Wonderful! I'd be happy to help you find the perfect room for your stay. Let me show you our available accommodations.");
+      setTimeout(() => {
+        handleRoomAvailability();
+      }, 500);
+    }
+  };
+
+  const addBotMessage = (content: string, type: 'text' | 'room-cards' | 'booking-summary' | 'menu-items' | 'amenity-info' | 'contact-info' | 'guest-profile' | 'smart-suggestions' | 'greeting-buttons' = 'text', data?: any) => {
     const message: Message = {
       id: Date.now().toString(),
       sender: 'bot',
@@ -172,16 +201,23 @@ const HotelChatbotCore = () => {
         return;
       }
 
-      setGuestBooking(booking);
-      setGuestName(booking.guest_name);
+      // Convert services_used to string array if it's not already
+      const processedBooking: GuestBooking = {
+        ...booking,
+        services_used: Array.isArray(booking.services_used) ? booking.services_used : 
+                      typeof booking.services_used === 'string' ? JSON.parse(booking.services_used) : []
+      };
+
+      setGuestBooking(processedBooking);
+      setGuestName(processedBooking.guest_name);
       setIsVerified(true);
 
       // Display guest profile
-      addBotMessage(`✅ Welcome back, ${booking.guest_name}! I've found your booking.`, 'guest-profile', booking);
+      addBotMessage(`✅ Welcome back, ${processedBooking.guest_name}! I've found your booking.`, 'guest-profile', processedBooking);
       
       // Generate smart suggestions after verification
       setTimeout(() => {
-        generateSmartSuggestions(booking);
+        generateSmartSuggestions(processedBooking);
       }, 1500);
 
     } catch (error) {
@@ -743,6 +779,35 @@ Thank you for your order!`);
   };
 
   const renderMessage = (message: Message) => {
+    if (message.type === 'greeting-buttons' && message.data) {
+      const { buttons } = message.data;
+      return (
+        <div className="space-y-3">
+          <p className="text-sm text-gray-600 mb-4">{message.content}</p>
+          <div className="grid gap-3">
+            {buttons.map((button: any) => (
+              <Card 
+                key={button.id}
+                className="border-2 border-blue-200 bg-gradient-to-r from-blue-50 to-indigo-50 hover:border-blue-400 hover:shadow-lg transition-all duration-200 cursor-pointer transform hover:scale-[1.02]"
+                onClick={() => handleGreetingButtonClick(button.id)}
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-start gap-3">
+                    <div className="flex-1">
+                      <h3 className="font-bold text-lg text-blue-900 mb-1">{button.title}</h3>
+                      <p className="font-medium text-blue-700 mb-2">{button.subtitle}</p>
+                      <p className="text-sm text-gray-600">{button.description}</p>
+                    </div>
+                    <div className="text-blue-600 text-xl">→</div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
     if (message.type === 'guest-profile' && message.data) {
       const booking = message.data as GuestBooking;
       return (
