@@ -18,6 +18,7 @@ import { TypingIndicator } from './chatbot/TypingIndicator';
 import { ChatMessage } from './chatbot/ChatMessage';
 import { SessionManager } from './chatbot/SessionManager';
 import { generateCityResponse, generateHeritageResponse, generateServiceResponse, detectQueryType } from '../lib/enhanced-ai-responses';
+import FAQPromptSuggestions from './chatbot/FAQPromptSuggestions';
 
 interface UserContext {
   hasBooking: boolean;
@@ -68,6 +69,8 @@ const UnifiedHotelChatbot = () => {
     isLoyaltyMember: false,
     timeOfDay: 'morning'
   });
+
+  const [showFAQPrompts, setShowFAQPrompts] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
@@ -546,6 +549,22 @@ const UnifiedHotelChatbot = () => {
       },
       book_spa_treatment: () => {
         handleSpaBookingFlow('book_spa_treatment');
+      },
+      show_faq_prompts: () => {
+        setShowFAQPrompts(true);
+        setShowSuggestions(false);
+      },
+      show_business_center: () => {
+        addBotMessage("Our Business Center is available 24/7 with meeting rooms, printing facilities, and high-speed internet. Would you like to reserve a meeting room?", 'text');
+      },
+      show_ai_concierge: () => {
+        addBotMessage("I'm your AI Concierge! I can help you with bookings, dining recommendations, local attractions, and answer any questions about our hotel services. What would you like to know?", 'text');
+      },
+      request_late_checkout: () => {
+        addBotMessage("I'd be happy to arrange late checkout for you until 2 PM at no extra charge. Please provide your room number and I'll confirm the arrangement.", 'text');
+      },
+      view_loyalty_perks: () => {
+        addBotMessage("As a loyalty member, you enjoy exclusive benefits including room upgrades, late checkout, complimentary breakfast, and spa discounts. Would you like to use any of these perks?", 'text');
       }
     };
 
@@ -635,6 +654,10 @@ const UnifiedHotelChatbot = () => {
           <FAQEngine onQuestionSelect={handleFAQSelect} />
         )}
 
+        {showFAQPrompts && (
+          <FAQPromptSuggestions onPromptSelect={handleFAQPromptSelect} />
+        )}
+
         {showSuggestions && messages.length > 2 && (
           <SmartSuggestionEngine
             userContext={userContext}
@@ -677,6 +700,8 @@ const UnifiedHotelChatbot = () => {
         showInteractiveFeatures={showInteractiveFeatures}
         onToggleInteractiveFeatures={() => setShowInteractiveFeatures(!showInteractiveFeatures)}
         messageCount={insights.sessionData.messageCount}
+        showFAQPrompts={showFAQPrompts}
+        onToggleFAQPrompts={() => setShowFAQPrompts(!showFAQPrompts)}
       />
     </Card>
   );

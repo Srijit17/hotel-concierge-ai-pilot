@@ -1,10 +1,8 @@
 
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
-import { Send, Sparkles, Bot, MessageSquare, Phone } from 'lucide-react';
+import { Send, Lightbulb, Settings, HelpCircle } from 'lucide-react';
 
 interface ChatInputProps {
   input: string;
@@ -17,6 +15,8 @@ interface ChatInputProps {
   showInteractiveFeatures: boolean;
   onToggleInteractiveFeatures: () => void;
   messageCount: number;
+  showFAQPrompts?: boolean;
+  onToggleFAQPrompts?: () => void;
 }
 
 export const ChatInput: React.FC<ChatInputProps> = ({
@@ -29,27 +29,10 @@ export const ChatInput: React.FC<ChatInputProps> = ({
   onToggleSuggestions,
   showInteractiveFeatures,
   onToggleInteractiveFeatures,
-  messageCount
+  messageCount,
+  showFAQPrompts = false,
+  onToggleFAQPrompts
 }) => {
-  const quickActions = [
-    { id: 'book_room', label: '🏨 Book Room', color: 'bg-blue-600' },
-    { id: 'room_service', label: '🍽️ Room Service', color: 'bg-orange-600' },
-    { id: 'amenities', label: '💆‍♀️ Amenities', color: 'bg-purple-600' },
-    { id: 'verify_booking', label: '🎫 My Booking', color: 'bg-green-600' },
-    { id: 'contact_support', label: '📞 Contact Support', color: 'bg-red-600' },
-    { id: 'city_info', label: '🏔️ City Info', color: 'bg-teal-600' },
-    { id: 'hotel_heritage', label: '🏛️ Hotel Heritage', color: 'bg-amber-600' }
-  ];
-
-  const serviceQueries = [
-    { id: 'geyser_issue', label: '🚿 Geyser Not Working', query: 'geyser not working' },
-    { id: 'need_towels', label: '🏨 Need Towels', query: 'need extra towels' },
-    { id: 'no_soap', label: '🧼 No Soap', query: 'no soap in bathroom' },
-    { id: 'need_water', label: '💧 Need Water', query: 'need water bottles' },
-    { id: 'wifi_issue', label: '📶 WiFi Problem', query: 'wifi not working' },
-    { id: 'ac_problem', label: '❄️ AC Issue', query: 'air conditioning problem' }
-  ];
-
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -57,100 +40,102 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     }
   };
 
-  const handleQuickActionClick = (actionId: string) => {
-    if (actionId === 'city_info') {
-      onInputChange('Tell me about Kashmir and Kolkata');
-      setTimeout(() => onSendMessage(), 100);
-    } else if (actionId === 'hotel_heritage') {
-      onInputChange('Tell me about the hotel heritage and history');
-      setTimeout(() => onSendMessage(), 100);
-    } else {
-      onQuickAction(actionId);
-    }
-  };
-
-  const handleServiceQuery = (query: string) => {
-    onInputChange(query);
-    setTimeout(() => onSendMessage(), 100);
-  };
-
   return (
-    <div className="border-t p-4 bg-white">
+    <div className="border-t p-4 space-y-3">
       {/* Quick Actions */}
-      <div className="mb-4">
-        <div className="flex flex-wrap gap-2 mb-3">
-          {quickActions.map((action) => (
-            <Button
-              key={action.id}
-              onClick={() => handleQuickActionClick(action.id)}
-              className={`${action.color} hover:opacity-90 text-white text-xs px-3 py-1 h-8`}
-              disabled={isTyping}
-            >
-              {action.label}
-            </Button>
-          ))}
-        </div>
-        
-        {/* Service Queries */}
-        <div className="mb-3">
-          <p className="text-xs text-gray-600 mb-2">Common Service Requests:</p>
-          <div className="flex flex-wrap gap-2">
-            {serviceQueries.map((service) => (
-              <Button
-                key={service.id}
-                onClick={() => handleServiceQuery(service.query)}
-                className="bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs px-2 py-1 h-7"
-                disabled={isTyping}
-                variant="outline"
-              >
-                {service.label}
-              </Button>
-            ))}
-          </div>
-        </div>
+      <div className="flex flex-wrap gap-2">
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => onQuickAction('book_room')}
+          className="text-xs"
+        >
+          📅 Book Room
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => onQuickAction('explore_dining')}
+          className="text-xs"
+        >
+          🍽️ Dining
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => onQuickAction('explore_amenities')}
+          className="text-xs"
+        >
+          🏊‍♂️ Amenities
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => onQuickAction('show_spa_amenities')}
+          className="text-xs"
+        >
+          💆‍♀️ Spa
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => onQuickAction('contact_support')}
+          className="text-xs"
+        >
+          📞 Support
+        </Button>
       </div>
 
-      {/* Chat Input */}
-      <div className="flex gap-2 items-end">
-        <div className="flex-1">
-          <Textarea
-            value={input}
-            onChange={(e) => onInputChange(e.target.value)}
-            onKeyPress={handleKeyPress}
-            placeholder={isTyping ? "AI is typing..." : "Ask me anything about the hotel, city, or services..."}
-            disabled={isTyping}
-            className="min-h-[40px] max-h-[120px] resize-none"
-          />
-        </div>
+      {/* Input Area */}
+      <div className="flex space-x-2">
+        <Textarea
+          value={input}
+          onChange={(e) => onInputChange(e.target.value)}
+          onKeyPress={handleKeyPress}
+          placeholder="Ask me anything about the hotel, bookings, dining, or services..."
+          className="flex-1 min-h-[40px] max-h-[120px] resize-none"
+          disabled={isTyping}
+        />
         <Button
           onClick={onSendMessage}
-          disabled={isTyping || !input.trim()}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 h-[40px]"
+          disabled={!input.trim() || isTyping}
+          size="icon"
+          className="min-w-[40px] h-[40px]"
         >
           <Send className="w-4 h-4" />
         </Button>
       </div>
 
-      {/* Settings */}
-      <div className="flex justify-between items-center mt-3 text-xs text-gray-500">
-        <div className="flex gap-4">
-          <Button
-            variant="ghost"
-            size="sm"
+      {/* Feature Toggles */}
+      <div className="flex justify-between items-center text-xs text-gray-500">
+        <div className="flex gap-3">
+          <button
             onClick={onToggleSuggestions}
-            className="text-xs h-6"
+            className={`flex items-center gap-1 hover:text-gray-700 ${showSuggestions ? 'text-blue-600' : ''}`}
           >
-            {showSuggestions ? 'Hide' : 'Show'} Suggestions
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
+            <Lightbulb className="w-3 h-3" />
+            Smart Suggestions
+          </button>
+          
+          <button
             onClick={onToggleInteractiveFeatures}
-            className="text-xs h-6"
+            className={`flex items-center gap-1 hover:text-gray-700 ${showInteractiveFeatures ? 'text-blue-600' : ''}`}
           >
-            {showInteractiveFeatures ? 'Hide' : 'Show'} Features
-          </Button>
+            <Settings className="w-3 h-3" />
+            Interactive
+          </button>
+
+          {onToggleFAQPrompts && (
+            <button
+              onClick={onToggleFAQPrompts}
+              className={`flex items-center gap-1 hover:text-gray-700 ${showFAQPrompts ? 'text-blue-600' : ''}`}
+            >
+              <HelpCircle className="w-3 h-3" />
+              FAQ Help
+            </button>
+          )}
         </div>
+        
         <span>Messages: {messageCount}</span>
       </div>
     </div>

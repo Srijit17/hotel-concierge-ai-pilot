@@ -3,7 +3,7 @@ import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Lightbulb, Utensils, Sparkles, Clock, Gift } from 'lucide-react';
+import { Lightbulb, Utensils, Sparkles, Clock, Gift, Coffee, Dumbbell } from 'lucide-react';
 
 interface Suggestion {
   id: string;
@@ -35,43 +35,108 @@ const SmartSuggestionEngine: React.FC<SmartSuggestionEngineProps> = ({
     const suggestions: Suggestion[] = [];
     const { hasBooking, lastOrderTime, hasSpaBooking, isLoyaltyMember, timeOfDay } = userContext;
 
-    // Time-based suggestions
+    // Late checkout suggestion
+    if (hasBooking && timeOfDay === 'morning') {
+      suggestions.push({
+        id: 'late_checkout',
+        title: 'Late Checkout Available',
+        description: 'Extend your stay until 2 PM at no extra charge',
+        action: 'request_late_checkout',
+        priority: 'high',
+        icon: <Clock className="w-4 h-4" />,
+        category: 'Convenience',
+        timing: '🕐'
+      });
+    }
+
+    // Business center suggestion
+    suggestions.push({
+      id: 'business_center',
+      title: 'Business Center Access',
+      description: 'Meeting rooms and business services available 24/7',
+      action: 'show_business_center',
+      priority: 'medium',
+      icon: <Gift className="w-4 h-4" />,
+      category: 'Business',
+      timing: '💼'
+    });
+
+    // AI Concierge suggestion
+    suggestions.push({
+      id: 'ai_concierge',
+      title: 'AI Concierge Service',
+      description: 'Get personalized recommendations and instant answers',
+      action: 'show_ai_concierge',
+      priority: 'medium',
+      icon: <Lightbulb className="w-4 h-4" />,
+      category: 'Service',
+      timing: '🤖'
+    });
+
+    // Food & Dining suggestions
     if (timeOfDay === 'morning') {
       suggestions.push({
-        id: 'breakfast',
-        title: 'Start Your Day Right',
-        description: 'Would you like to order breakfast to your room?',
-        action: 'order_breakfast',
+        id: 'breakfast_special',
+        title: 'Breakfast Menu',
+        description: 'Start your day with our delicious breakfast options',
+        action: 'explore_dining',
         priority: 'high',
-        icon: <Utensils className="w-4 h-4" />,
-        category: 'Food',
-        timing: 'Morning Special'
+        icon: <Coffee className="w-4 h-4" />,
+        category: 'Dining',
+        timing: '🍳'
       });
     }
 
-    if (timeOfDay === 'evening' && (!lastOrderTime || isMoreThanHoursAgo(lastOrderTime, 4))) {
+    if (timeOfDay === 'evening') {
       suggestions.push({
-        id: 'dinner',
-        title: 'Dinner Time Approaching',
-        description: 'Browse our dinner menu and place your order',
-        action: 'order_dinner',
+        id: 'dinner_special',
+        title: 'Dinner Specials',
+        description: 'Explore our chef\'s special dinner menu',
+        action: 'explore_dining',
         priority: 'high',
         icon: <Utensils className="w-4 h-4" />,
-        category: 'Food',
-        timing: 'Evening Special'
+        category: 'Dining',
+        timing: '🍽️'
       });
     }
 
-    // Wellness suggestions
-    if (hasBooking && !hasSpaBooking) {
+    // Spa & Wellness suggestions
+    if (!hasSpaBooking) {
       suggestions.push({
-        id: 'spa',
-        title: 'Relax & Unwind',
-        description: 'Add a spa treatment to make your stay perfect',
-        action: 'book_spa',
+        id: 'spa_wellness',
+        title: 'Spa & Wellness',
+        description: 'Relax and rejuvenate with our premium spa treatments',
+        action: 'show_spa_amenities',
         priority: 'medium',
         icon: <Sparkles className="w-4 h-4" />,
-        category: 'Wellness'
+        category: 'Wellness',
+        timing: '💆‍♀️'
+      });
+    }
+
+    // Amenities suggestion
+    suggestions.push({
+      id: 'hotel_amenities',
+      title: 'Hotel Amenities',
+      description: 'Discover our world-class facilities and services',
+      action: 'explore_amenities',
+      priority: 'medium',
+      icon: <Dumbbell className="w-4 h-4" />,
+      category: 'Amenities',
+      timing: '🏊‍♂️'
+    });
+
+    // Room service suggestion (if no recent order)
+    if (!lastOrderTime || isMoreThanHoursAgo(lastOrderTime, 4)) {
+      suggestions.push({
+        id: 'room_service',
+        title: 'Room Service Menu',
+        description: 'Order delicious meals directly to your room',
+        action: 'explore_dining',
+        priority: 'medium',
+        icon: <Utensils className="w-4 h-4" />,
+        category: 'Dining',
+        timing: '🛎️'
       });
     }
 
@@ -85,19 +150,6 @@ const SmartSuggestionEngine: React.FC<SmartSuggestionEngineProps> = ({
         priority: 'medium',
         icon: <Gift className="w-4 h-4" />,
         category: 'Rewards'
-      });
-    }
-
-    // Late checkout suggestion
-    if (hasBooking && timeOfDay === 'morning') {
-      suggestions.push({
-        id: 'late_checkout',
-        title: 'Need More Time?',
-        description: 'Request late checkout for a relaxed departure',
-        action: 'request_late_checkout',
-        priority: 'low',
-        icon: <Clock className="w-4 h-4" />,
-        category: 'Convenience'
       });
     }
 
@@ -137,7 +189,7 @@ const SmartSuggestionEngine: React.FC<SmartSuggestionEngineProps> = ({
       </div>
       
       <div className="grid gap-3">
-        {suggestions.slice(0, 3).map((suggestion) => (
+        {suggestions.slice(0, 6).map((suggestion) => (
           <Card key={suggestion.id} className="cursor-pointer hover:shadow-md transition-shadow">
             <CardContent className="p-4">
               <Button
@@ -147,6 +199,7 @@ const SmartSuggestionEngine: React.FC<SmartSuggestionEngineProps> = ({
               >
                 <div className="flex items-start space-x-3 w-full">
                   <div className="flex-shrink-0 mt-1">
+                    <span className="text-lg mr-2">{suggestion.timing}</span>
                     {suggestion.icon}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -154,16 +207,9 @@ const SmartSuggestionEngine: React.FC<SmartSuggestionEngineProps> = ({
                       <span className="text-sm font-medium text-foreground">
                         {suggestion.title}
                       </span>
-                      <div className="flex items-center space-x-1">
-                        {suggestion.timing && (
-                          <Badge variant="outline" className="text-xs">
-                            {suggestion.timing}
-                          </Badge>
-                        )}
-                        <Badge className={`text-xs ${getPriorityColor(suggestion.priority)}`}>
-                          {suggestion.priority}
-                        </Badge>
-                      </div>
+                      <Badge className={`text-xs ${getPriorityColor(suggestion.priority)}`}>
+                        {suggestion.priority}
+                      </Badge>
                     </div>
                     <p className="text-xs text-muted-foreground">
                       {suggestion.description}
