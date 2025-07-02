@@ -862,7 +862,7 @@ const HotelChatbotCore = () => {
         <div className="space-y-3">
           <p className="text-sm text-gray-600 mb-3">{message.content}</p>
           {categorized ? (
-            categories.map(category => (
+            categories.map((category: string) => (
               <div key={category} className="mb-4">
                 <h4 className="font-semibold text-orange-900 mb-2">{category}</h4>
                 <div className="grid gap-2">
