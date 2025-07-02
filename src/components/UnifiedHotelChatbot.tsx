@@ -429,6 +429,12 @@ const UnifiedHotelChatbot = () => {
       },
       contact_support: () => {
         addDepartmentContacts();
+      },
+      show_spa_amenities: () => {
+        handleSpaBookingFlow('show_spa_amenities');
+      },
+      book_spa_treatment: () => {
+        handleSpaBookingFlow('book_spa_treatment');
       }
     };
 
@@ -450,6 +456,14 @@ const UnifiedHotelChatbot = () => {
   const handleMenuItemSelection = (item: any) => {
     addBotMessage(`Great selection! I've noted ${item.name} for your order. Would you like to add more items or proceed with this order?`, 'order-options', { selectedItem: item });
     setUserContext(prev => ({ ...prev, lastOrderTime: new Date().toISOString() }));
+    
+    // Add spa treatment suggestion after room service order
+    setTimeout(() => {
+      addBotMessage(
+        "Since you've ordered room service, would you like to book a relaxing spa treatment to complete your in-room experience?",
+        'spa-suggestion'
+      );
+    }, 2000);
   };
 
   const handleAmenityBooking = (amenity: any) => {

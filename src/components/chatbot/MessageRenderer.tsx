@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { 
   Calendar, Users, MapPin, Star, Phone, Clock, Utensils, User, CheckCircle, 
-  CreditCard, Car, Dumbbell, Coffee, Wifi, Bot, AlertCircle, MessageSquare, Brain 
+  CreditCard, Car, Dumbbell, Coffee, Wifi, Bot, AlertCircle, MessageSquare, Brain, Heart 
 } from 'lucide-react';
 
 export interface Message {
@@ -12,7 +12,7 @@ export interface Message {
   sender: 'user' | 'bot';
   content: string;
   timestamp: Date;
-  type?: 'text' | 'room-cards' | 'booking-summary' | 'menu-items' | 'amenity-info' | 'contact-info' | 'guest-profile' | 'smart-suggestions' | 'greeting-buttons' | 'department-contacts' | 'amenity-booking' | 'payment-options' | 'activity-prompts' | 'ai-response' | 'booking-modification' | 'payment-summary' | 'order-modification' | 'service-options' | 'booking-form' | 'booking-confirmation' | 'post-booking-services' | 'order-options';
+  type?: 'text' | 'room-cards' | 'booking-summary' | 'menu-items' | 'amenity-info' | 'contact-info' | 'guest-profile' | 'smart-suggestions' | 'greeting-buttons' | 'department-contacts' | 'amenity-booking' | 'payment-options' | 'activity-prompts' | 'ai-response' | 'booking-modification' | 'payment-summary' | 'order-modification' | 'service-options' | 'booking-form' | 'booking-confirmation' | 'post-booking-services' | 'order-options' | 'spa-suggestion' | 'spa-booking-time';
   data?: any;
   intent?: string;
   confidence?: number;
@@ -455,6 +455,73 @@ export const MessageRenderer: React.FC<MessageRendererProps> = ({
             >
               Proceed to Payment
             </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (message.type === 'spa-suggestion') {
+    return (
+      <div className="space-y-3">
+        <p className="text-sm text-muted-foreground mb-3">{message.content}</p>
+        <Card className="border border-pink-200 bg-pink-50">
+          <CardContent className="p-4">
+            <div className="flex items-center mb-3">
+              <Heart className="w-5 h-5 text-pink-600 mr-2" />
+              <h4 className="font-semibold text-pink-800">Spa Treatment Suggestion</h4>
+            </div>
+            <p className="text-sm text-muted-foreground mb-3">
+              Enhance your room service experience with one of our rejuvenating spa treatments.
+            </p>
+            <div className="flex gap-2">
+              <Button 
+                size="sm" 
+                onClick={() => onQuickAction('show_spa_amenities')}
+                className="bg-pink-600 hover:bg-pink-700"
+              >
+                <Heart className="w-4 h-4 mr-2" />
+                View Spa Menu
+              </Button>
+              <Button 
+                size="sm" 
+                variant="outline"
+                onClick={() => onQuickAction('book_spa_treatment')}
+              >
+                Book Treatment
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (message.type === 'spa-booking-time') {
+    return (
+      <div className="space-y-3">
+        <p className="text-sm text-muted-foreground mb-3">{message.content}</p>
+        <Card className="border border-primary/20">
+          <CardContent className="p-4">
+            <h4 className="font-semibold mb-3">Available Time Slots</h4>
+            <div className="grid grid-cols-2 gap-2">
+              <Button variant="outline" size="sm" onClick={() => onQuickAction('book_spa_morning')}>
+                <Clock className="w-4 h-4 mr-2" />
+                Morning (9-12 PM)
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => onQuickAction('book_spa_afternoon')}>
+                <Clock className="w-4 h-4 mr-2" />
+                Afternoon (1-5 PM)
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => onQuickAction('book_spa_evening')}>
+                <Clock className="w-4 h-4 mr-2" />
+                Evening (6-9 PM)
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => onQuickAction('contact_support')}>
+                <Phone className="w-4 h-4 mr-2" />
+                Custom Time
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>
