@@ -10,6 +10,9 @@ import { MessageRenderer, type Message } from './chatbot/MessageRenderer';
 import { enhancedAI } from '../lib/enhanced-chatbot-ai';
 import { type SessionContext } from '../lib/chatbot-ai';
 import { menuItems, amenityServices } from '../lib/chatbot-data';
+import FAQEngine from './chatbot/FAQEngine';
+import SmartSuggestionEngine from './chatbot/SmartSuggestionEngine';
+import IntentCorrectionEngine, { generateCorrectionSuggestions } from './chatbot/IntentCorrectionEngine';
 
 interface Room {
   id: string;
@@ -52,6 +55,18 @@ const UnifiedHotelChatbot = () => {
     visitCount: 1
   });
   
+  // New AI-enhanced states
+  const [showFAQ, setShowFAQ] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(true);
+  const [correctionSuggestions, setCorrectionSuggestions] = useState<any[]>([]);
+  const [userContext, setUserContext] = useState({
+    hasBooking: false,
+    lastOrderTime: undefined,
+    hasSpaBooking: false,
+    isLoyaltyMember: false,
+    timeOfDay: 'morning' as 'morning' | 'afternoon' | 'evening' | 'night'
+  });
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
@@ -62,11 +77,26 @@ const UnifiedHotelChatbot = () => {
       "Welcome to The Grand Luxury Hotel! I'm Sofia, your AI-powered concierge assistant. I'm here to make your stay absolutely perfect. How may I assist you today?", 
       'greeting-buttons'
     );
+    
+    // Update time of day
+    updateTimeOfDay();
   }, []);
 
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  const updateTimeOfDay = () => {
+    const hour = new Date().getHours();
+    let timeOfDay: 'morning' | 'afternoon' | 'evening' | 'night';
+    
+    if (hour >= 6 && hour < 12) timeOfDay = 'morning';
+    else if (hour >= 12 && hour < 17) timeOfDay = 'afternoon';
+    else if (hour >= 17 && hour < 22) timeOfDay = 'evening';
+    else timeOfDay = 'night';
+    
+    setUserContext(prev => ({ ...prev, timeOfDay }));
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -116,6 +146,18 @@ const UnifiedHotelChatbot = () => {
     setMessages(prev => [...prev, userMessage]);
     const userInput = input;
     setInput('');
+    
+    // Check for intent correction first
+    const corrections = generateCorrectionSuggestions(userInput);
+    if (corrections.length > 0 && corrections[0].confidence > 0.85) {
+      setCorrectionSuggestions(corrections);
+      return;
+    }
+
+    await processUserMessage(userInput);
+  };
+
+  const processUserMessage = async (userInput: string) => {
     setIsTyping(true);
 
     try {
@@ -139,12 +181,47 @@ const UnifiedHotelChatbot = () => {
         fallbackCount: response.confidence < 0.6 ? prev.fallbackCount + 1 : 0
       }));
 
+      // Show suggestions based on response
+      setShowSuggestions(true);
+      setShowFAQ(false);
+
       // Simulate short delay for natural feel
       setTimeout(() => {
         setIsTyping(false);
         
-        // Handle different response types
-        if (response.data?.action === 'show_rooms') {
+        // Handle different response types with fallback
+        if (response.confidence < 0.5) {
+          // AI Fallback & Department Routing
+          addBotMessage(
+            "I'm sorry, I couldn't understand your request completely. Let me connect you with our specialized departments:",
+            'department-contacts',
+            {
+              departments: [
+                { 
+                  department: "Booking & Reservations", 
+                  phone: "+91 90000 11111", 
+                  email: "booking@grandluxury.com",
+                  hours: "24/7", 
+                  description: "Room bookings, modifications, cancellations" 
+                },
+                { 
+                  department: "Food & Room Service", 
+                  phone: "+91 90000 22222", 
+                  email: "food@grandluxury.com",
+                  hours: "24/7", 
+                  description: "Menu, orders, dietary requirements" 
+                },
+                { 
+                  department: "Guest Relations", 
+                  phone: "+91 90000 33333", 
+                  email: "support@grandluxury.com",
+                  hours: "24/7", 
+                  description: "General assistance and special requests" 
+                }
+              ]
+            }
+          );
+        } else if (response.data?.action === 'show_rooms') {
           addBotMessage(response.text, 'room-cards', {
             rooms: response.data.rooms
           }, response.confidence);
@@ -160,25 +237,50 @@ const UnifiedHotelChatbot = () => {
         } else {
           addBotMessage(response.text, response.type, response.data, response.confidence);
         }
-      }, Math.random() * 800 + 200); // 200-1000ms delay
+      }, Math.random() * 800 + 200);
 
     } catch (error) {
       console.error('Error generating response:', error);
       setIsTyping(false);
       addBotMessage(
-        "I apologize, but I'm having trouble processing your request right now. Let me connect you with our front desk for immediate assistance.",
+        "I apologize, but I'm having trouble processing your request right now. Please contact our front desk for immediate assistance at +91 90000 11111",
         'department-contacts',
         {
           departments: [
             { 
               department: "Front Desk", 
-              phone: "+1 (555) 123-4567", 
+              phone: "+91 90000 11111", 
               hours: "24/7", 
               description: "General inquiries and immediate assistance" 
             }
           ]
         }
       );
+    }
+  };
+
+  // New AI brick handlers
+  const handleFAQSelect = (faq: any) => {
+    addBotMessage(faq.answer, 'text');
+    setShowFAQ(false);
+  };
+
+  const handleSuggestionSelect = (suggestion: any) => {
+    // Process suggestion as if user typed it
+    processUserMessage(suggestion.description);
+    setShowSuggestions(false);
+  };
+
+  const handleAcceptCorrection = (correction: any) => {
+    setCorrectionSuggestions([]);
+    processUserMessage(correction.corrected);
+  };
+
+  const handleRejectCorrection = () => {
+    setCorrectionSuggestions([]);
+    const lastUserMessage = messages[messages.length - 1];
+    if (lastUserMessage && lastUserMessage.sender === 'user') {
+      processUserMessage(lastUserMessage.content);
     }
   };
 
@@ -200,6 +302,10 @@ const UnifiedHotelChatbot = () => {
       },
       verify_booking: () => {
         addBotMessage("Please provide your booking confirmation number or the phone number used for the reservation, and I'll help you access your booking details.");
+      },
+      show_faq: () => {
+        setShowFAQ(true);
+        setShowSuggestions(false);
       }
     };
 
@@ -209,16 +315,21 @@ const UnifiedHotelChatbot = () => {
     }
   };
 
-  const handleRoomSelection = (room: Room) => {
+  const handleRoomSelection = (room: any) => {
     addBotMessage(`Excellent choice! The ${room.name} is perfect for your stay.`, 'text');
+    setUserContext(prev => ({ ...prev, hasBooking: true }));
   };
 
-  const handleMenuItemSelection = (item: MenuItem) => {
+  const handleMenuItemSelection = (item: any) => {
     addBotMessage(`Great selection! I've noted ${item.name} for your order.`, 'text');
+    setUserContext(prev => ({ ...prev, lastOrderTime: new Date().toISOString() }));
   };
 
-  const handleAmenityBooking = (amenity: AmenityService) => {
+  const handleAmenityBooking = (amenity: any) => {
     addBotMessage(`Wonderful! ${amenity.name} has been added to your preferences.`, 'text');
+    if (amenity.category === 'Spa') {
+      setUserContext(prev => ({ ...prev, hasSpaBooking: true }));
+    }
   };
 
   const handlePaymentClick = (data: any) => {
@@ -247,6 +358,30 @@ const UnifiedHotelChatbot = () => {
       </CardHeader>
       
       <CardContent className="flex-1 overflow-y-auto p-4 space-y-4">
+        {/* Intent Correction Engine */}
+        {correctionSuggestions.length > 0 && (
+          <IntentCorrectionEngine
+            userInput={messages[messages.length - 1]?.content || ''}
+            suggestions={correctionSuggestions}
+            onAcceptCorrection={handleAcceptCorrection}
+            onRejectCorrection={handleRejectCorrection}
+          />
+        )}
+
+        {/* FAQ Engine */}
+        {showFAQ && (
+          <FAQEngine onQuestionSelect={handleFAQSelect} />
+        )}
+
+        {/* Smart Suggestion Engine */}
+        {showSuggestions && messages.length > 2 && (
+          <SmartSuggestionEngine
+            userContext={userContext}
+            onSuggestionSelect={handleSuggestionSelect}
+          />
+        )}
+
+        {/* Messages */}
         {messages.map((message) => (
           <div
             key={message.id}
@@ -287,6 +422,7 @@ const UnifiedHotelChatbot = () => {
           </div>
         ))}
         
+        {/* Typing indicator */}
         {isTyping && (
           <div className="flex justify-start">
             <div className="bg-muted rounded-lg p-3 max-w-[85%]">
@@ -319,6 +455,26 @@ const UnifiedHotelChatbot = () => {
             disabled={isTyping || !input.trim()}
           >
             <Send className="w-4 h-4" />
+          </Button>
+        </div>
+        
+        {/* Quick action buttons */}
+        <div className="flex flex-wrap gap-2 mt-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => handleQuickAction('show_faq')}
+            className="text-xs"
+          >
+            FAQ
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setShowSuggestions(!showSuggestions)}
+            className="text-xs"
+          >
+            {showSuggestions ? 'Hide' : 'Show'} Suggestions
           </Button>
         </div>
       </div>
