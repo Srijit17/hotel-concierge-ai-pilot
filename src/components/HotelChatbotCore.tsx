@@ -978,7 +978,8 @@ const HotelChatbotCore = () => {
     }
 
     if (message.type === 'activity-prompts' && message.data) {
-      const prompts = Array.isArray(message.data) ? message.data.filter((item): item is string => typeof item === 'string') : [];
+      const prompts: string[] = Array.isArray(message.data) ? 
+        message.data.filter((item): item is string => typeof item === 'string') : [];
       return (
         <div className="space-y-3">
           <p className="text-sm text-gray-600 mb-3">{message.content}</p>
