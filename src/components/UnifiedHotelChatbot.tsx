@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -77,6 +78,18 @@ const UnifiedHotelChatbot = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
+  const updateTimeOfDay = () => {
+    const hour = new Date().getHours();
+    let timeOfDay: 'morning' | 'afternoon' | 'evening' | 'night';
+    
+    if (hour >= 6 && hour < 12) timeOfDay = 'morning';
+    else if (hour >= 12 && hour < 17) timeOfDay = 'afternoon';
+    else if (hour >= 17 && hour < 22) timeOfDay = 'evening';
+    else timeOfDay = 'night';
+    
+    setUserContext(prev => ({ ...prev, timeOfDay }));
+  };
+
   useEffect(() => {
     initializeSession();
     setSessionStartTime(new Date());
@@ -105,18 +118,6 @@ const UnifiedHotelChatbot = () => {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
-
-  const updateTimeOfDay = () => {
-    const hour = new Date().getHours();
-    let timeOfDay: 'morning' | 'afternoon' | 'evening' | 'night';
-    
-    if (hour >= 6 && hour < 12) timeOfDay = 'morning';
-    else if (hour >= 12 && hour < 17) timeOfDay = 'afternoon';
-    else if (hour >= 17 && hour < 22) timeOfDay = 'evening';
-    else timeOfDay = 'night';
-    
-    setUserContext(prev => ({ ...prev, timeOfDay }));
-  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -344,18 +345,6 @@ const UnifiedHotelChatbot = () => {
     } else if (elementId.includes('calendar')) {
       addBotMessage(`Perfect! I've noted your preferred date: ${value}. Let me show you available options.`);
     }
-  };
-
-  const updateTimeOfDay = () => {
-    const hour = new Date().getHours();
-    let timeOfDay: 'morning' | 'afternoon' | 'evening' | 'night';
-    
-    if (hour >= 6 && hour < 12) timeOfDay = 'morning';
-    else if (hour >= 12 && hour < 17) timeOfDay = 'afternoon';
-    else if (hour >= 17 && hour < 22) timeOfDay = 'evening';
-    else timeOfDay = 'night';
-    
-    setUserContext(prev => ({ ...prev, timeOfDay }));
   };
 
   const handleFAQSelect = (faq: any) => {
