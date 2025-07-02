@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Bot, Send, Brain, Zap } from 'lucide-react';
+import { Bot, Send, Brain, Zap, BarChart3, Activity } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { MessageRenderer, type Message } from './chatbot/MessageRenderer';
@@ -13,6 +13,10 @@ import { menuItems, amenityServices } from '../lib/chatbot-data';
 import FAQEngine from './chatbot/FAQEngine';
 import SmartSuggestionEngine from './chatbot/SmartSuggestionEngine';
 import IntentCorrectionEngine, { generateCorrectionSuggestions } from './chatbot/IntentCorrectionEngine';
+import { InteractiveFeatures } from './chatbot/InteractiveFeatures';
+import { DataDrivenInsights } from './chatbot/DataDrivenInsights';
+import { InteractiveChatElements } from './chatbot/InteractiveChatElements';
+import { dataManager, type UserPreferences } from '../lib/interactive-data-manager';
 
 interface Room {
   id: string;
@@ -44,7 +48,6 @@ interface AmenityService {
 }
 
 const UnifiedHotelChatbot = () => {
-  // State management
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -55,10 +58,14 @@ const UnifiedHotelChatbot = () => {
     visitCount: 1
   });
   
-  // New AI-enhanced states
   const [showFAQ, setShowFAQ] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(true);
+  const [showInsights, setShowInsights] = useState(false);
+  const [showInteractiveFeatures, setShowInteractiveFeatures] = useState(false);
   const [correctionSuggestions, setCorrectionSuggestions] = useState<any[]>([]);
+  const [interactiveElements, setInteractiveElements] = useState<any[]>([]);
+  const [sessionStartTime, setSessionStartTime] = useState<Date>(new Date());
+  
   const [userContext, setUserContext] = useState({
     hasBooking: false,
     lastOrderTime: undefined,
@@ -70,17 +77,30 @@ const UnifiedHotelChatbot = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
-  // Initialize chatbot
   useEffect(() => {
     initializeSession();
+    setSessionStartTime(new Date());
+    
     addBotMessage(
-      "Welcome to The Grand Luxury Hotel! I'm Sofia, your AI-powered concierge assistant. I'm here to make your stay absolutely perfect. How may I assist you today?", 
+      "Welcome to The Grand Luxury Hotel! I'm Sofia, your enhanced AI concierge with smart insights and interactive features. Let's make your stay extraordinary!", 
       'greeting-buttons'
     );
     
-    // Update time of day
     updateTimeOfDay();
+    
+    setTimeout(() => {
+      setShowInteractiveFeatures(true);
+    }, 2000);
   }, []);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const duration = Date.now() - sessionStartTime.getTime();
+      dataManager.updateSessionDuration(duration);
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, [sessionStartTime]);
 
   useEffect(() => {
     scrollToBottom();
@@ -131,6 +151,11 @@ const UnifiedHotelChatbot = () => {
       confidence
     };
     setMessages(prev => [...prev, newMessage]);
+    
+    if (type && ['room-cards', 'menu-items', 'amenity-info'].includes(type)) {
+      const elements = dataManager.generateInteractiveElements(type.replace('-', '_'));
+      setInteractiveElements(elements);
+    }
   };
 
   const handleSendMessage = async () => {
@@ -144,10 +169,18 @@ const UnifiedHotelChatbot = () => {
     };
 
     setMessages(prev => [...prev, userMessage]);
+    dataManager.incrementMessageCount();
+    
+    dataManager.trackInteraction({
+      type: 'input',
+      elementId: 'chat_input',
+      value: input,
+      context: 'message_send'
+    });
+
     const userInput = input;
     setInput('');
     
-    // Check for intent correction first
     const corrections = generateCorrectionSuggestions(userInput);
     if (corrections.length > 0 && corrections[0].confidence > 0.85) {
       setCorrectionSuggestions(corrections);
@@ -161,37 +194,30 @@ const UnifiedHotelChatbot = () => {
     setIsTyping(true);
 
     try {
-      // Get previous user messages for context
       const previousMessages = messages
         .filter(m => m.sender === 'user')
         .slice(-3)
         .map(m => m.content);
 
-      // Generate response using enhanced AI
       const response = await enhancedAI.generateResponse(
         userInput, 
         sessionContext, 
         previousMessages
       );
 
-      // Update session context
       setSessionContext(prev => ({
         ...prev,
         previousIntents: [...prev.previousIntents.slice(-2), response.type || 'general'],
         fallbackCount: response.confidence < 0.6 ? prev.fallbackCount + 1 : 0
       }));
 
-      // Show suggestions based on response
       setShowSuggestions(true);
       setShowFAQ(false);
 
-      // Simulate short delay for natural feel
       setTimeout(() => {
         setIsTyping(false);
         
-        // Handle different response types with fallback
         if (response.confidence < 0.5) {
-          // AI Fallback & Department Routing
           addBotMessage(
             "I'm sorry, I couldn't understand your request completely. Let me connect you with our specialized departments:",
             'department-contacts',
@@ -259,14 +285,85 @@ const UnifiedHotelChatbot = () => {
     }
   };
 
-  // New AI brick handlers
+  const handleFeedback = (type: 'positive' | 'negative', message: string) => {
+    dataManager.trackInteraction({
+      type: 'feedback',
+      elementId: 'feedback_system',
+      value: { type, message },
+      context: 'user_satisfaction'
+    });
+
+    toast({
+      title: "Thanks for your feedback!",
+      description: "Your input helps us improve our service.",
+    });
+  };
+
+  const handleRoomFilter = (filters: any) => {
+    dataManager.trackInteraction({
+      type: 'selection',
+      elementId: 'room_filter',
+      value: filters,
+      context: 'room_booking'
+    });
+
+    dataManager.updatePreferences({
+      priceRange: filters.priceRange,
+      amenities: filters.amenities
+    });
+
+    addBotMessage("Perfect! Based on your preferences, here are the best rooms for you:", 'room-cards', {
+      rooms: [
+        { id: '1', name: 'Deluxe Room', type: 'deluxe', price_per_night: filters.priceRange[0] + 50, features: filters.amenities.slice(0, 3), max_guests: 2, image_url: '/placeholder.svg', available: true },
+        { id: '2', name: 'Premium Suite', type: 'suite', price_per_night: filters.priceRange[1] - 100, features: filters.amenities, max_guests: 4, image_url: '/placeholder.svg', available: true }
+      ]
+    });
+  };
+
+  const handleQuickPoll = (response: string) => {
+    dataManager.trackInteraction({
+      type: 'selection',
+      elementId: 'quick_poll',
+      value: response,
+      context: 'user_preference'
+    });
+
+    addBotMessage(`Great choice! I'll prioritize ${response.toLowerCase()} in my recommendations for you.`);
+  };
+
+  const handleInteractiveElement = (elementId: string, value: any) => {
+    dataManager.trackInteraction({
+      type: 'selection',
+      elementId,
+      value,
+      context: 'interactive_element'
+    });
+
+    if (elementId.includes('rating')) {
+      addBotMessage(`Thank you for the ${value}-star rating! Your feedback is valuable to us.`);
+    } else if (elementId.includes('calendar')) {
+      addBotMessage(`Perfect! I've noted your preferred date: ${value}. Let me show you available options.`);
+    }
+  };
+
+  const updateTimeOfDay = () => {
+    const hour = new Date().getHours();
+    let timeOfDay: 'morning' | 'afternoon' | 'evening' | 'night';
+    
+    if (hour >= 6 && hour < 12) timeOfDay = 'morning';
+    else if (hour >= 12 && hour < 17) timeOfDay = 'afternoon';
+    else if (hour >= 17 && hour < 22) timeOfDay = 'evening';
+    else timeOfDay = 'night';
+    
+    setUserContext(prev => ({ ...prev, timeOfDay }));
+  };
+
   const handleFAQSelect = (faq: any) => {
     addBotMessage(faq.answer, 'text');
     setShowFAQ(false);
   };
 
   const handleSuggestionSelect = (suggestion: any) => {
-    // Process suggestion as if user typed it
     processUserMessage(suggestion.description);
     setShowSuggestions(false);
   };
@@ -336,29 +433,54 @@ const UnifiedHotelChatbot = () => {
     addBotMessage("Processing your payment... Payment completed successfully!", 'text');
   };
 
+  const insights = dataManager.getRealTimeInsights();
+
   return (
-    <Card className="w-full max-w-4xl mx-auto h-[600px] flex flex-col">
+    <Card className="w-full max-w-4xl mx-auto h-[700px] flex flex-col">
       <CardHeader className="border-b">
         <CardTitle className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <Bot className="w-6 h-6 text-primary" />
-            <span>Sofia - AI Hotel Concierge</span>
+            <span>Sofia - Enhanced AI Concierge</span>
           </div>
           <div className="flex items-center space-x-2">
             <Badge variant="outline" className="text-xs">
               <Zap className="w-3 h-3 mr-1" />
-              Fast AI
+              Ultra Fast
             </Badge>
             <Badge variant="outline" className="text-xs">
               <Brain className="w-3 h-3 mr-1" />
-              Enhanced
+              Smart AI
             </Badge>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowInsights(!showInsights)}
+            >
+              <BarChart3 className="w-3 h-3 mr-1" />
+              Insights
+            </Button>
           </div>
         </CardTitle>
       </CardHeader>
       
       <CardContent className="flex-1 overflow-y-auto p-4 space-y-4">
-        {/* Intent Correction Engine */}
+        {showInsights && (
+          <DataDrivenInsights
+            sessionData={insights.sessionData}
+            hotelMetrics={insights.hotelMetrics}
+          />
+        )}
+
+        {showInteractiveFeatures && (
+          <InteractiveFeatures
+            onFeedback={handleFeedback}
+            onRoomFilter={handleRoomFilter}
+            onQuickPoll={handleQuickPoll}
+            userPreferences={insights.sessionData.preferences}
+          />
+        )}
+
         {correctionSuggestions.length > 0 && (
           <IntentCorrectionEngine
             userInput={messages[messages.length - 1]?.content || ''}
@@ -368,12 +490,10 @@ const UnifiedHotelChatbot = () => {
           />
         )}
 
-        {/* FAQ Engine */}
         {showFAQ && (
           <FAQEngine onQuestionSelect={handleFAQSelect} />
         )}
 
-        {/* Smart Suggestion Engine */}
         {showSuggestions && messages.length > 2 && (
           <SmartSuggestionEngine
             userContext={userContext}
@@ -381,7 +501,13 @@ const UnifiedHotelChatbot = () => {
           />
         )}
 
-        {/* Messages */}
+        {interactiveElements.length > 0 && (
+          <InteractiveChatElements
+            elements={interactiveElements}
+            onInteraction={handleInteractiveElement}
+          />
+        )}
+
         {messages.map((message) => (
           <div
             key={message.id}
@@ -422,7 +548,6 @@ const UnifiedHotelChatbot = () => {
           </div>
         ))}
         
-        {/* Typing indicator */}
         {isTyping && (
           <div className="flex justify-start">
             <div className="bg-muted rounded-lg p-3 max-w-[85%]">
@@ -430,7 +555,7 @@ const UnifiedHotelChatbot = () => {
                 <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce"></div>
                 <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
                 <div className="w-2 h-2 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                <span className="text-xs text-muted-foreground ml-2">Sofia is typing...</span>
+                <span className="text-xs text-muted-foreground ml-2">Sofia is thinking...</span>
               </div>
             </div>
           </div>
@@ -458,7 +583,6 @@ const UnifiedHotelChatbot = () => {
           </Button>
         </div>
         
-        {/* Quick action buttons */}
         <div className="flex flex-wrap gap-2 mt-2">
           <Button
             size="sm"
@@ -476,6 +600,18 @@ const UnifiedHotelChatbot = () => {
           >
             {showSuggestions ? 'Hide' : 'Show'} Suggestions
           </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setShowInteractiveFeatures(!showInteractiveFeatures)}
+            className="text-xs"
+          >
+            <Activity className="w-3 h-3 mr-1" />
+            Interactive
+          </Button>
+          <Badge variant="secondary" className="text-xs">
+            {insights.sessionData.messageCount} messages
+          </Badge>
         </div>
       </div>
     </Card>
