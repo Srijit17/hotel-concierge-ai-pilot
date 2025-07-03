@@ -1,9 +1,12 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { MessageCircle, Clock, CreditCard, Car, Wifi, Coffee } from 'lucide-react';
+import DynamicFAQEngine from './DynamicFAQEngine';
+import { type DynamicFAQ } from '../../lib/dynamic-faq-service';
 
 interface FAQ {
   id: string;
@@ -15,7 +18,7 @@ interface FAQ {
 }
 
 interface FAQEngineProps {
-  onQuestionSelect: (faq: FAQ) => void;
+  onQuestionSelect: (faq: FAQ | DynamicFAQ) => void;
 }
 
 const topFAQs: FAQ[] = [
@@ -62,50 +65,77 @@ const topFAQs: FAQ[] = [
 ];
 
 const FAQEngine: React.FC<FAQEngineProps> = ({ onQuestionSelect }) => {
+  const [activeTab, setActiveTab] = useState('dynamic');
+
+  const handleStaticQuestionSelect = (faq: FAQ) => {
+    onQuestionSelect(faq);
+  };
+
+  const handleDynamicQuestionSelect = (faq: DynamicFAQ) => {
+    onQuestionSelect(faq);
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center space-x-2 mb-4">
         <MessageCircle className="w-5 h-5 text-primary" />
         <h3 className="text-lg font-semibold">Frequently Asked Questions</h3>
       </div>
-      
-      <div className="grid gap-3">
-        {topFAQs.map((faq, index) => (
-          <Card key={faq.id} className="cursor-pointer hover:shadow-md transition-shadow">
-            <CardContent className="p-4">
-              <Button
-                variant="ghost"
-                className="w-full justify-start text-left h-auto p-0"
-                onClick={() => onQuestionSelect(faq)}
-              >
-                <div className="flex items-start space-x-3 w-full">
-                  <div className="flex-shrink-0 mt-1">
-                    {faq.icon}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm font-medium text-foreground">
-                        {faq.question}
-                      </span>
-                      <div className="flex items-center space-x-2">
-                        <Badge variant="secondary" className="text-xs">
-                          #{index + 1}
-                        </Badge>
-                        <Badge variant="outline" className="text-xs">
-                          {faq.popularity}% ask this
-                        </Badge>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="dynamic">Live FAQs</TabsTrigger>
+          <TabsTrigger value="static">Popular FAQs</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="dynamic" className="mt-4">
+          <DynamicFAQEngine 
+            onQuestionSelect={handleDynamicQuestionSelect}
+            showSearch={true}
+            maxItems={10}
+          />
+        </TabsContent>
+        
+        <TabsContent value="static" className="mt-4">
+          <div className="grid gap-3">
+            {topFAQs.map((faq, index) => (
+              <Card key={faq.id} className="cursor-pointer hover:shadow-md transition-shadow">
+                <CardContent className="p-4">
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start text-left h-auto p-0"
+                    onClick={() => handleStaticQuestionSelect(faq)}
+                  >
+                    <div className="flex items-start space-x-3 w-full">
+                      <div className="flex-shrink-0 mt-1">
+                        {faq.icon}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-sm font-medium text-foreground">
+                            {faq.question}
+                          </span>
+                          <div className="flex items-center space-x-2">
+                            <Badge variant="secondary" className="text-xs">
+                              #{index + 1}
+                            </Badge>
+                            <Badge variant="outline" className="text-xs">
+                              {faq.popularity}% ask this
+                            </Badge>
+                          </div>
+                        </div>
+                        <p className="text-xs text-muted-foreground line-clamp-2">
+                          {faq.answer}
+                        </p>
                       </div>
                     </div>
-                    <p className="text-xs text-muted-foreground line-clamp-2">
-                      {faq.answer}
-                    </p>
-                  </div>
-                </div>
-              </Button>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+                  </Button>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
