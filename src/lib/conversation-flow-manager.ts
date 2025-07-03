@@ -41,69 +41,46 @@ export class ConversationFlowManager {
   }
 
   private initializeFlows() {
-    // Room Booking Flow
+    // Room Booking Flow - Enhanced with specific conversation patterns
     this.flowDefinitions.set('room_booking', [
       {
-        id: 'check_dates',
-        name: 'Check-in/Check-out Dates',
+        id: 'availability_inquiry',
+        name: 'Room Availability Inquiry',
         type: 'input',
-        prompt: 'What are your check-in and check-out dates?',
+        prompt: 'I\'d be happy to help you check room availability! For tomorrow, what type of room are you looking for?',
         validation: (input) => {
-          if (!input || typeof input !== 'string') return 'Please provide valid dates';
-          // Add date validation logic
+          if (!input || typeof input !== 'string') return 'Please specify the type of room you need';
           return true;
         },
-        nextStep: 'guest_count',
-        errorMessage: 'Please provide valid check-in and check-out dates.',
+        nextStep: 'show_available_options',
+        errorMessage: 'Please let me know what type of room you\'re looking for.',
         maxRetries: 3
       },
       {
-        id: 'guest_count',
-        name: 'Number of Guests',
-        type: 'input',
-        prompt: 'How many guests will be staying?',
-        validation: (input) => {
-          const num = parseInt(input);
-          if (isNaN(num) || num < 1 || num > 10) return 'Please enter a number between 1 and 10';
-          return true;
-        },
-        nextStep: 'room_preferences',
-        errorMessage: 'Please enter a valid number of guests (1-10).',
-        maxRetries: 3
-      },
-      {
-        id: 'room_preferences',
-        name: 'Room Preferences',
-        type: 'choice',
-        prompt: 'What type of room would you prefer?',
-        nextStep: 'show_available_rooms',
-        maxRetries: 2
-      },
-      {
-        id: 'show_available_rooms',
-        name: 'Available Rooms',
+        id: 'show_available_options',
+        name: 'Show Available Room Options',
         type: 'display',
-        prompt: 'Here are the available rooms matching your preferences:',
+        prompt: 'Perfect! I found 3 deluxe king rooms available for tomorrow:\n• Deluxe King - City View ($299/night)\n• Deluxe King - Ocean View ($349/night)\n• Deluxe King - Suite ($449/night)\nWhich would you prefer?',
         nextStep: 'room_selection'
       },
       {
         id: 'room_selection',
         name: 'Room Selection',
         type: 'choice',
-        prompt: 'Please select a room:',
+        prompt: 'Please select your preferred room:',
         validation: (input) => {
-          if (!input || !input.id) return 'Please select a valid room';
+          if (!input || !input.roomType) return 'Please select a room from the available options';
           return true;
         },
         nextStep: 'guest_details',
-        errorMessage: 'Please select a room from the available options.',
+        errorMessage: 'Please choose one of the available room options.',
         maxRetries: 3
       },
       {
         id: 'guest_details',
-        name: 'Guest Details',
+        name: 'Guest Details Collection',
         type: 'input',
-        prompt: 'Please provide your contact details:',
+        prompt: 'Excellent choice! The ocean view room sounds perfect. Now I\'ll need some details to complete your reservation. May I have your name and contact information?',
         validation: (input) => {
           if (!input.name || !input.email || !input.phone) {
             return 'Please provide your name, email, and phone number';
@@ -118,22 +95,73 @@ export class ConversationFlowManager {
         id: 'booking_confirmation',
         name: 'Booking Confirmation',
         type: 'confirmation',
-        prompt: 'Please confirm your booking details:',
-        nextStep: 'payment_processing',
-        maxRetries: 1
-      },
-      {
-        id: 'payment_processing',
-        name: 'Payment Processing',
-        type: 'action',
-        prompt: 'Processing your payment...',
+        prompt: 'Thank you! Let me confirm your reservation details before finalizing.',
         nextStep: 'booking_complete'
       },
       {
         id: 'booking_complete',
         name: 'Booking Complete',
         type: 'display',
-        prompt: 'Your booking is confirmed! Here are your confirmation details:'
+        prompt: 'Your reservation has been confirmed! You\'ll receive a confirmation email shortly with all the details.'
+      }
+    ]);
+
+    // Fallback & Escalation Flow - New high-priority flow
+    this.flowDefinitions.set('fallback_escalation', [
+      {
+        id: 'issue_identification',
+        name: 'Issue Identification',
+        type: 'input',
+        prompt: 'I\'m sorry to hear about the issue. Can you please describe what\'s happening so I can help you better?',
+        validation: (input) => {
+          if (!input || typeof input !== 'string') return 'Please describe the issue you\'re experiencing';
+          return true;
+        },
+        nextStep: (data) => {
+          // Detect maintenance issues
+          if (data.issue_identification?.toLowerCase().includes('shower') || 
+              data.issue_identification?.toLowerCase().includes('maintenance') ||
+              data.issue_identification?.toLowerCase().includes('not working')) {
+            return 'maintenance_escalation';
+          }
+          return 'general_escalation';
+        },
+        errorMessage: 'Please let me know what issue you\'re experiencing.',
+        maxRetries: 2
+      },
+      {
+        id: 'maintenance_escalation',
+        name: 'Maintenance Issue Escalation',
+        type: 'choice',
+        prompt: 'I\'m sorry to hear about the issue with your shower. For maintenance requests, I\'ll connect you with our front desk team who can dispatch someone immediately. Would you like me to call your room, or would you prefer to speak with someone at extension 0?',
+        nextStep: 'maintenance_dispatch'
+      },
+      {
+        id: 'maintenance_dispatch',
+        name: 'Maintenance Dispatch Confirmation',
+        type: 'action',
+        prompt: 'I\'ve notified our maintenance team about the shower issue in your room. Someone will call you within 5 minutes to schedule an immediate repair. Is there anything else I can help you with?',
+        nextStep: 'escalation_complete'
+      },
+      {
+        id: 'general_escalation',
+        name: 'General Issue Escalation',
+        type: 'choice',
+        prompt: 'I understand this is frustrating. Let me connect you with our guest services team who can provide more specialized assistance. Would you prefer a phone call or in-person assistance?',
+        nextStep: 'escalation_dispatch'
+      },
+      {
+        id: 'escalation_dispatch',
+        name: 'Escalation Dispatch',
+        type: 'action',
+        prompt: 'I\'ve escalated your request to our guest services team. They will contact you within the next few minutes to resolve this issue. Thank you for your patience.',
+        nextStep: 'escalation_complete'
+      },
+      {
+        id: 'escalation_complete',
+        name: 'Escalation Complete',
+        type: 'display',
+        prompt: 'Your request has been escalated to the appropriate team. Is there anything else I can assist you with while you wait?'
       }
     ]);
 
@@ -550,6 +578,34 @@ export class ConversationFlowManager {
         errorFlows: 0
       };
     }
+  }
+
+  // Enhanced flow detection based on user input
+  detectFlowFromInput(userInput: string): string | null {
+    const input = userInput.toLowerCase();
+    
+    // Maintenance/Escalation flow triggers
+    if (input.includes('not working') || input.includes('broken') || input.includes('problem') || 
+        input.includes('issue') || input.includes('shower') || input.includes('maintenance')) {
+      return 'fallback_escalation';
+    }
+    
+    // Room booking flow triggers
+    if (input.includes('room') && (input.includes('available') || input.includes('book') || input.includes('reserve'))) {
+      return 'room_booking';
+    }
+    
+    // Spa booking flow triggers
+    if (input.includes('spa') || input.includes('massage') || input.includes('treatment')) {
+      return 'spa_booking';
+    }
+    
+    // Room service flow triggers
+    if (input.includes('food') || input.includes('menu') || input.includes('order') || input.includes('room service')) {
+      return 'room_service';
+    }
+    
+    return null;
   }
 }
 
