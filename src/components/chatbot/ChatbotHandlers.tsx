@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { type Message } from './MessageRenderer';
 import { type UserContext, type BookingState } from './ChatbotTypes';
@@ -9,6 +8,7 @@ import { menuItems, amenityServices } from '../../lib/chatbot-data';
 import { generateCityResponse, generateHeritageResponse, generateServiceResponse, detectQueryType } from '../../lib/enhanced-ai-responses';
 import { dataManager } from '../../lib/interactive-data-manager';
 import { generateCorrectionSuggestions } from './IntentCorrectionEngine';
+import { flowManager } from '../../lib/conversation-flow-manager';
 
 export const useBookingHandlers = (
   bookingState: BookingState,
@@ -19,43 +19,24 @@ export const useBookingHandlers = (
     try {
       switch (step) {
         case 'start_booking':
-          setBookingState({ step: 'room_selection' });
-          const availableRooms = [
-            { 
-              id: '1', 
-              name: 'Deluxe Mountain View', 
-              type: 'deluxe', 
-              price_per_night: 250, 
-              features: ['Mountain View', 'Free WiFi', 'Mini Bar', 'Balcony'], 
-              max_guests: 2, 
-              image_url: '/placeholder.svg', 
-              available: true 
-            },
-            { 
-              id: '2', 
-              name: 'Heritage Suite', 
-              type: 'suite', 
-              price_per_night: 400, 
-              features: ['Heritage Decor', 'Separate Living Area', 'Jacuzzi', 'Butler Service'], 
-              max_guests: 4, 
-              image_url: '/placeholder.svg', 
-              available: true 
-            },
-            { 
-              id: '3', 
-              name: 'Royal Presidential Suite', 
-              type: 'presidential', 
-              price_per_night: 750, 
-              features: ['Panoramic City View', 'Private Terrace', 'Butler Service', 'Dining Room'], 
-              max_guests: 6, 
-              image_url: '/placeholder.svg', 
-              available: true 
-            }
-          ];
+          // Start the conversation flow
+          const sessionId = `session_${Date.now()}`;
+          const flow = flowManager.startFlow('room_booking', sessionId);
           
-          addBotMessage("Perfect! Let me show you our available luxury accommodations:", setMessages, 'room-cards', {
-            rooms: availableRooms
-          });
+          if (flow) {
+            const currentStep = flowManager.getCurrentStep(flow.id);
+            if (currentStep) {
+              addBotMessage(currentStep.prompt, setMessages, 'text');
+            }
+          } else {
+            // Fallback to old booking flow
+            setBookingState({ step: 'room_selection' });
+            const availableRooms = flowManager.getAvailableRooms();
+            
+            addBotMessage("Perfect! Let me show you our available luxury accommodations:", setMessages, 'room-cards', {
+              rooms: availableRooms
+            });
+          }
           break;
           
         case 'room_selected':
@@ -70,6 +51,24 @@ export const useBookingHandlers = (
             'booking-form',
             { room: data }
           );
+          break;
+          
+        case 'show_room_upgrades':
+          if (!data || !data.roomId) {
+            addBotMessage("Please select a room first to see upgrade options.", setMessages, 'error');
+            return;
+          }
+          
+          const upgrades = flowManager.getRoomUpgrades(data.roomId);
+          if (upgrades.length === 0) {
+            addBotMessage("Your selected room is already our premium option! No upgrades available.", setMessages, 'text');
+          } else {
+            addBotMessage("Here are the available upgrades for your room:", setMessages, 'room-cards', {
+              rooms: upgrades,
+              isUpgrade: true,
+              originalRoomId: data.roomId
+            });
+          }
           break;
           
         case 'booking_confirmed':
@@ -201,6 +200,33 @@ export const useMessageHandlers = (
     setIsTyping(true);
 
     try {
+      // Check if this should trigger a conversation flow
+      const detectedFlow = flowManager.detectFlowFromInput(userInput);
+      
+      if (detectedFlow) {
+        const sessionId = `session_${Date.now()}`;
+        const flow = flowManager.startFlow(detectedFlow, sessionId, { userInput });
+        
+        if (flow) {
+          const currentStep = flowManager.getCurrentStep(flow.id);
+          if (currentStep) {
+            setTimeout(() => {
+              setIsTyping(false);
+              
+              // Handle special display steps for room booking
+              if (detectedFlow === 'room_booking' && currentStep.id === 'room_type_inquiry') {
+                addBotMessage(currentStep.prompt, setMessages, 'text');
+              } else if (detectedFlow === 'fallback_escalation') {
+                addBotMessage(currentStep.prompt, setMessages, 'text');
+              } else {
+                addBotMessage(currentStep.prompt, setMessages, 'text');
+              }
+            }, 800);
+            return;
+          }
+        }
+      }
+
       // First check for city, heritage, or service queries
       let queryType;
       try {
@@ -274,8 +300,10 @@ export const useMessageHandlers = (
         if (response.confidence < 0.5) {
           addDepartmentContacts(setMessages);
         } else if (response.data?.action === 'show_rooms') {
+          // Show actual room data from flow manager
+          const availableRooms = flowManager.getAvailableRooms();
           addBotMessage(response.text, setMessages, 'room-cards', {
-            rooms: response.data.rooms
+            rooms: availableRooms
           }, response.confidence);
         } else if (response.data?.action === 'show_amenities') {
           addBotMessage(response.text, setMessages, 'amenity-info', {

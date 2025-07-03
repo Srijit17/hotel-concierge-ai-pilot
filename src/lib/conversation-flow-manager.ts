@@ -1,4 +1,3 @@
-
 import { type SessionContext } from './chatbot-ai';
 
 export interface ConversationFlow {
@@ -27,6 +26,54 @@ export interface FlowStep {
   maxRetries?: number;
 }
 
+// Room data for booking flow
+const AVAILABLE_ROOMS = [
+  {
+    id: 'deluxe-city',
+    name: 'Deluxe King - City View',
+    type: 'deluxe',
+    view: 'city',
+    price_per_night: 299,
+    features: ['King Bed', 'City View', 'Free WiFi', 'Mini Bar'],
+    max_guests: 2,
+    image_url: '/placeholder.svg',
+    available: true
+  },
+  {
+    id: 'deluxe-ocean',
+    name: 'Deluxe King - Ocean View',
+    type: 'deluxe',
+    view: 'ocean',
+    price_per_night: 349,
+    features: ['King Bed', 'Ocean View', 'Free WiFi', 'Mini Bar', 'Balcony'],
+    max_guests: 2,
+    image_url: '/placeholder.svg',
+    available: true
+  },
+  {
+    id: 'deluxe-suite',
+    name: 'Deluxe King - Suite',
+    type: 'suite',
+    view: 'ocean',
+    price_per_night: 449,
+    features: ['King Bed', 'Ocean View', 'Separate Living Area', 'Mini Bar', 'Balcony'],
+    max_guests: 4,
+    image_url: '/placeholder.svg',
+    available: true
+  },
+  {
+    id: 'presidential',
+    name: 'Presidential Suite',
+    type: 'presidential',
+    view: 'panoramic',
+    price_per_night: 799,
+    features: ['King Bed', 'Panoramic View', 'Living Room', 'Dining Area', 'Butler Service'],
+    max_guests: 6,
+    image_url: '/placeholder.svg',
+    available: true
+  }
+];
+
 export class ConversationFlowManager {
   private static instance: ConversationFlowManager;
   private activeFlows: Map<string, ConversationFlow> = new Map();
@@ -41,68 +88,110 @@ export class ConversationFlowManager {
   }
 
   private initializeFlows() {
-    // Room Booking Flow - Enhanced with specific conversation patterns
+    // Enhanced Room Booking Flow with actual room options
     this.flowDefinitions.set('room_booking', [
       {
-        id: 'availability_inquiry',
-        name: 'Room Availability Inquiry',
+        id: 'room_type_inquiry',
+        name: 'Room Type Inquiry',
         type: 'input',
-        prompt: 'I\'d be happy to help you check room availability! For tomorrow, what type of room are you looking for?',
+        prompt: 'I\'d be happy to help you check room availability! What type of room are you looking for? (e.g., deluxe, suite, or any specific preferences)',
         validation: (input) => {
           if (!input || typeof input !== 'string') return 'Please specify the type of room you need';
           return true;
         },
-        nextStep: 'show_available_options',
+        nextStep: 'show_available_rooms',
         errorMessage: 'Please let me know what type of room you\'re looking for.',
         maxRetries: 3
       },
       {
-        id: 'show_available_options',
+        id: 'show_available_rooms',
         name: 'Show Available Room Options',
         type: 'display',
-        prompt: 'Perfect! I found 3 deluxe king rooms available for tomorrow:\n• Deluxe King - City View ($299/night)\n• Deluxe King - Ocean View ($349/night)\n• Deluxe King - Suite ($449/night)\nWhich would you prefer?',
+        prompt: 'Perfect! Here are our available rooms for your dates:',
         nextStep: 'room_selection'
       },
       {
         id: 'room_selection',
         name: 'Room Selection',
         type: 'choice',
-        prompt: 'Please select your preferred room:',
+        prompt: 'Which room would you prefer? You can also ask about room upgrades!',
         validation: (input) => {
-          if (!input || !input.roomType) return 'Please select a room from the available options';
+          if (!input || !input.roomId) return 'Please select a room from the available options';
           return true;
         },
-        nextStep: 'guest_details',
+        nextStep: (data) => {
+          // Check if user wants to see upgrades
+          if (data.room_selection?.showUpgrades) {
+            return 'show_room_upgrades';
+          }
+          return 'guest_details';
+        },
         errorMessage: 'Please choose one of the available room options.',
         maxRetries: 3
+      },
+      {
+        id: 'show_room_upgrades',
+        name: 'Show Room Upgrades',
+        type: 'display',
+        prompt: 'Here are available upgrades for your selected room:',
+        nextStep: 'upgrade_selection'
+      },
+      {
+        id: 'upgrade_selection',
+        name: 'Upgrade Selection',
+        type: 'choice',
+        prompt: 'Would you like to upgrade your room?',
+        validation: (input) => {
+          return true; // Optional selection
+        },
+        nextStep: 'guest_details',
+        maxRetries: 2
       },
       {
         id: 'guest_details',
         name: 'Guest Details Collection',
         type: 'input',
-        prompt: 'Excellent choice! The ocean view room sounds perfect. Now I\'ll need some details to complete your reservation. May I have your name and contact information?',
+        prompt: 'Excellent choice! Now I\'ll need some details to complete your reservation. Please provide your name, email, phone number, and any special requests.',
         validation: (input) => {
           if (!input.name || !input.email || !input.phone) {
             return 'Please provide your name, email, and phone number';
           }
+          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          if (!emailRegex.test(input.email)) {
+            return 'Please provide a valid email address';
+          }
           return true;
         },
-        nextStep: 'booking_confirmation',
+        nextStep: 'booking_summary',
         errorMessage: 'Please provide all required contact information.',
         maxRetries: 3
+      },
+      {
+        id: 'booking_summary',
+        name: 'Booking Summary',
+        type: 'display',
+        prompt: 'Here\'s your booking summary. Please review the details:',
+        nextStep: 'booking_confirmation'
       },
       {
         id: 'booking_confirmation',
         name: 'Booking Confirmation',
         type: 'confirmation',
-        prompt: 'Thank you! Let me confirm your reservation details before finalizing.',
+        prompt: 'Please confirm your reservation. Would you like to proceed with this booking?',
+        nextStep: 'payment_processing'
+      },
+      {
+        id: 'payment_processing',
+        name: 'Payment Processing',
+        type: 'action',
+        prompt: 'Processing your payment and confirming your reservation...',
         nextStep: 'booking_complete'
       },
       {
         id: 'booking_complete',
         name: 'Booking Complete',
         type: 'display',
-        prompt: 'Your reservation has been confirmed! You\'ll receive a confirmation email shortly with all the details.'
+        prompt: 'Congratulations! Your reservation has been confirmed. You\'ll receive a confirmation email shortly with all the details and check-in information.'
       }
     ]);
 
@@ -346,6 +435,37 @@ export class ConversationFlowManager {
     ]);
   }
 
+  // Get available rooms based on preferences
+  getAvailableRooms(preferences?: any): any[] {
+    let filteredRooms = [...AVAILABLE_ROOMS];
+    
+    if (preferences?.type) {
+      const type = preferences.type.toLowerCase();
+      if (type.includes('deluxe')) {
+        filteredRooms = filteredRooms.filter(room => room.type === 'deluxe' || room.type === 'suite');
+      } else if (type.includes('suite')) {
+        filteredRooms = filteredRooms.filter(room => room.type === 'suite' || room.type === 'presidential');
+      }
+    }
+    
+    if (preferences?.maxPrice) {
+      filteredRooms = filteredRooms.filter(room => room.price_per_night <= preferences.maxPrice);
+    }
+    
+    return filteredRooms;
+  }
+
+  // Get room upgrades for a selected room
+  getRoomUpgrades(selectedRoomId: string): any[] {
+    const selectedRoom = AVAILABLE_ROOMS.find(room => room.id === selectedRoomId);
+    if (!selectedRoom) return [];
+    
+    return AVAILABLE_ROOMS.filter(room => 
+      room.price_per_night > selectedRoom.price_per_night && 
+      room.id !== selectedRoomId
+    ).slice(0, 3); // Show top 3 upgrades
+  }
+
   // Start a new conversation flow
   startFlow(flowId: string, sessionId: string, initialData: Record<string, any> = {}): ConversationFlow | null {
     try {
@@ -377,7 +497,7 @@ export class ConversationFlowManager {
     }
   }
 
-  // Process user input for active flow
+  // Process user input for active flow with enhanced room booking logic
   processFlowInput(flowId: string, userInput: any): {
     success: boolean;
     message: string;
@@ -408,6 +528,11 @@ export class ConversationFlowManager {
       // Update last activity
       flow.metadata.lastActivity = new Date();
 
+      // Handle special room booking logic
+      if (flow.name === 'room_booking') {
+        return this.processRoomBookingStep(flow, currentStep, userInput);
+      }
+
       // Validate input if validation function exists
       if (currentStep.validation) {
         const validationResult = currentStep.validation(userInput);
@@ -434,7 +559,7 @@ export class ConversationFlowManager {
 
       // Store the input data
       flow.data[currentStep.id] = userInput;
-      flow.metadata.retryCount = 0; // Reset retry count on successful input
+      flow.metadata.retryCount = 0;
 
       // Determine next step
       let nextStepId: string | undefined;
@@ -480,6 +605,229 @@ export class ConversationFlowManager {
         error: 'PROCESSING_ERROR'
       };
     }
+  }
+
+  // Enhanced room booking step processing
+  private processRoomBookingStep(flow: ConversationFlow, currentStep: FlowStep, userInput: any): any {
+    switch (currentStep.id) {
+      case 'show_available_rooms':
+        const availableRooms = this.getAvailableRooms(flow.data.room_type_inquiry);
+        flow.currentStep++;
+        const nextStep = flow.steps[flow.currentStep];
+        
+        return {
+          success: true,
+          message: nextStep.prompt,
+          data: { 
+            ...flow.data, 
+            availableRooms,
+            showRoomCards: true 
+          },
+          nextStep: nextStep
+        };
+
+      case 'room_selection':
+        if (!userInput.roomId) {
+          return {
+            success: false,
+            message: 'Please select a room from the available options',
+            error: 'INVALID_ROOM_SELECTION'
+          };
+        }
+
+        const selectedRoom = AVAILABLE_ROOMS.find(room => room.id === userInput.roomId);
+        if (!selectedRoom) {
+          return {
+            success: false,
+            message: 'Selected room is not available',
+            error: 'ROOM_NOT_AVAILABLE'
+          };
+        }
+
+        flow.data.room_selection = { ...userInput, selectedRoom };
+
+        // Check if user wants upgrades
+        if (userInput.showUpgrades) {
+          const upgrades = this.getRoomUpgrades(userInput.roomId);
+          flow.data.availableUpgrades = upgrades;
+          
+          // Move to show upgrades step
+          flow.currentStep = flow.steps.findIndex(step => step.id === 'show_room_upgrades');
+          const upgradeStep = flow.steps[flow.currentStep];
+          
+          return {
+            success: true,
+            message: upgradeStep.prompt,
+            data: { 
+              ...flow.data, 
+              availableUpgrades: upgrades,
+              showUpgradeCards: true 
+            },
+            nextStep: upgradeStep
+          };
+        } else {
+          // Move directly to guest details
+          flow.currentStep = flow.steps.findIndex(step => step.id === 'guest_details');
+          const guestStep = flow.steps[flow.currentStep];
+          
+          return {
+            success: true,
+            message: `Excellent choice! The ${selectedRoom.name} is perfect for your stay. ${guestStep.prompt}`,
+            data: flow.data,
+            nextStep: guestStep
+          };
+        }
+
+      case 'show_room_upgrades':
+        flow.currentStep++;
+        const upgradeSelectionStep = flow.steps[flow.currentStep];
+        
+        return {
+          success: true,
+          message: upgradeSelectionStep.prompt,
+          data: flow.data,
+          nextStep: upgradeSelectionStep
+        };
+
+      case 'upgrade_selection':
+        if (userInput.upgradeRoomId) {
+          const upgradeRoom = AVAILABLE_ROOMS.find(room => room.id === userInput.upgradeRoomId);
+          if (upgradeRoom) {
+            flow.data.room_selection.selectedRoom = upgradeRoom;
+            flow.data.room_selection.upgraded = true;
+          }
+        }
+
+        // Move to guest details
+        flow.currentStep = flow.steps.findIndex(step => step.id === 'guest_details');
+        const guestDetailsStep = flow.steps[flow.currentStep];
+        
+        return {
+          success: true,
+          message: guestDetailsStep.prompt,
+          data: flow.data,
+          nextStep: guestDetailsStep
+        };
+
+      case 'booking_summary':
+        const room = flow.data.room_selection.selectedRoom;
+        const guest = flow.data.guest_details;
+        const nights = 2; // Default to 2 nights
+        const total = room.price_per_night * nights;
+        
+        const summary = {
+          room,
+          guest,
+          nights,
+          total,
+          bookingNumber: `GRD${Date.now().toString().slice(-6)}`
+        };
+        
+        flow.data.bookingSummary = summary;
+        flow.currentStep++;
+        const confirmStep = flow.steps[flow.currentStep];
+        
+        return {
+          success: true,
+          message: confirmStep.prompt,
+          data: { 
+            ...flow.data, 
+            showBookingSummary: true,
+            bookingSummary: summary 
+          },
+          nextStep: confirmStep
+        };
+
+      case 'booking_confirmation':
+        if (userInput.confirmed) {
+          flow.currentStep++;
+          const paymentStep = flow.steps[flow.currentStep];
+          
+          return {
+            success: true,
+            message: paymentStep.prompt,
+            data: flow.data,
+            nextStep: paymentStep
+          };
+        } else {
+          return {
+            success: false,
+            message: 'Booking cancelled. Would you like to modify your selection or start over?',
+            error: 'BOOKING_CANCELLED'
+          };
+        }
+
+      default:
+        // Use default processing for other steps
+        return this.processDefaultStep(flow, currentStep, userInput);
+    }
+  }
+
+  // Default step processing logic
+  private processDefaultStep(flow: ConversationFlow, currentStep: FlowStep, userInput: any): any {
+    // Validate input if validation function exists
+    if (currentStep.validation) {
+      const validationResult = currentStep.validation(userInput);
+      if (validationResult !== true) {
+        flow.metadata.retryCount++;
+        
+        if (flow.metadata.retryCount >= (currentStep.maxRetries || 3)) {
+          flow.status = 'error';
+          flow.metadata.errorReason = 'Max retries exceeded';
+          return {
+            success: false,
+            message: 'Maximum retry attempts exceeded. Please start over or contact support.',
+            error: 'MAX_RETRIES_EXCEEDED'
+          };
+        }
+
+        return {
+          success: false,
+          message: typeof validationResult === 'string' ? validationResult : (currentStep.errorMessage || 'Invalid input'),
+          error: 'VALIDATION_FAILED'
+        };
+      }
+    }
+
+    // Store the input data
+    flow.data[currentStep.id] = userInput;
+    flow.metadata.retryCount = 0;
+
+    // Determine next step
+    let nextStepId: string | undefined;
+    if (typeof currentStep.nextStep === 'function') {
+      nextStepId = currentStep.nextStep(flow.data);
+    } else {
+      nextStepId = currentStep.nextStep;
+    }
+
+    // Find next step index
+    let nextStepIndex = -1;
+    if (nextStepId) {
+      nextStepIndex = flow.steps.findIndex(step => step.id === nextStepId);
+    }
+
+    // Check if flow is complete
+    if (nextStepIndex === -1 || flow.currentStep >= flow.steps.length - 1) {
+      flow.status = 'completed';
+      return {
+        success: true,
+        message: 'Flow completed successfully',
+        data: flow.data,
+        completed: true
+      };
+    }
+
+    // Move to next step
+    flow.currentStep = nextStepIndex;
+    const nextStep = flow.steps[flow.currentStep];
+
+    return {
+      success: true,
+      message: nextStep.prompt,
+      data: flow.data,
+      nextStep: nextStep
+    };
   }
 
   // Get current step for a flow

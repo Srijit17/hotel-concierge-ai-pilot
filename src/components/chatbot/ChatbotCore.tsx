@@ -336,7 +336,7 @@ const ChatbotCore = () => {
     }
   };
 
-  const handleQuickAction = (action: string) => {
+  const handleQuickAction = (action: string, data?: any) => {
     const quickActions: Record<string, () => void> = {
       room_availability: () => {
         handleBookingFlow('start_booking');
@@ -387,6 +387,16 @@ const ChatbotCore = () => {
       },
       view_loyalty_perks: () => {
         addBotMessage("As a loyalty member, you enjoy exclusive benefits including room upgrades, late checkout, complimentary breakfast, and spa discounts. Would you like to use any of these perks?", setMessages, 'text');
+      },
+      show_room_upgrades: () => {
+        if (data?.roomId) {
+          handleBookingFlow('show_room_upgrades', data);
+        } else {
+          addBotMessage("Please select a room first to see available upgrades.", setMessages, 'error');
+        }
+      },
+      proceed_booking: () => {
+        addBotMessage("Perfect! Let's proceed with your selected room. Please provide your contact details to complete the reservation.", setMessages, 'booking-form');
       }
     };
 
@@ -409,6 +419,22 @@ const ChatbotCore = () => {
     } else {
       addBotMessage(`Excellent choice! The ${room.name} is perfect for your stay.`, setMessages, 'text');
       setUserContext(prev => ({ ...prev, hasBooking: true }));
+      
+      // Offer room upgrades
+      setTimeout(() => {
+        addBotMessage(
+          "Would you like to see available room upgrades for an even more luxurious experience?",
+          setMessages,
+          'upgrade-options',
+          {
+            selectedRoomId: room.id,
+            actions: [
+              { action: 'show_room_upgrades', label: 'View Upgrades', data: { roomId: room.id } },
+              { action: 'proceed_booking', label: 'Continue with This Room' }
+            ]
+          }
+        );
+      }, 1500);
     }
   };
 
